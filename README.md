@@ -103,16 +103,6 @@ Exit codes: `0` success, `1` runtime failure, `2` invalid CLI/setup, `3` partial
 
 The API history fetch currently has limits of 5,000 SAB entries per normal/archive view and 50,000 Prowlarr records per run. Retained logs supplement history; this is not a guarantee of complete history beyond what upstream services retain.
 
-## Upgrade from 2.14.3
-
-1. Stop nzbview and any scheduled collector. Back up your existing database; when copying files directly, stop writers first and retain any SQLite sidecars.
-2. Extract 2.15.2 into a new folder and install its requirements in a new virtual environment.
-3. Copy your working `collector_config.json` into the new folder. Set `script` to `database_collector.py` and keep `db` pointing to your existing database. The collector is **7.11.0**; its filename no longer embeds a version number. Keep your existing database filename and path in `db`; only new installations default to `data/database_collector.db`.
-4. Set `log_timezone` to the timezone used by your previous collector/logs. Keep your keys, service ports and real log-directory settings.
-5. Start the app and run the collector once. It adds a source-status schema column without deleting existing history.
-
-The Windows BAT no longer assumes the database is one folder above the app. Your configuration is now authoritative. **No backfill or search rebuild is required for this upgrade.** A backfill can recover previously skipped incomplete-line evidence only if the source logs are still retained.
-
 ### Maintenance and backups
 
 ```bash
