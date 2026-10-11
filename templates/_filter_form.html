@@ -1,0 +1,94 @@
+<form class="smart-filter" method="get"
+      hx-get="{{ request.url.path }}" hx-target="{{ filter_target|default('#page-content') }}" {% if filter_select is defined %}hx-select="{{ filter_select }}" hx-swap="outerHTML"{% endif %} hx-push-url="true">
+  <input type="hidden" name="hours" value="{{ snap.hours }}">
+  {% if sample_scope is defined and sample_scope.mode == 'sample' %}
+  <input type="hidden" name="scope" value="sample">
+  <input type="hidden" name="sample_type" value="{{ sample_scope.type }}">
+  <input type="hidden" name="sample_n" value="{{ sample_scope.n }}">
+  {% endif %}
+  <div class="searchbox">
+    <span>⌕</span>
+    <input id="release-search" hx-preserve="true"
+           name="q" value="{{ filters.q }}" placeholder="{{ search_placeholder|default('Search release…') }}"
+           autocomplete="off" data-search>
+  </div>
+
+  {% if show_status %}
+  <select name="status" data-auto-submit>
+    {% if status_kind == 'attempt' %}
+      {% if sample_scope is defined and sample_scope.mode == 'sample' and sample_scope.type == 'downloads' %}
+        {% for value,label in [('all','All download results'),('completed','Downloaded successfully'),('failed','Download failed')] %}
+        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      {% else %}
+        {% for value,label in [('all','All attempt results'),('completed','Completed attempt'),('failed','Failed attempt'),('cancelled','Cancelled / aborted')] %}
+        <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+        {% endfor %}
+      {% endif %}
+    {% else %}
+      {% for value,label in [('all','All outcomes'),('completed','Completed'),('failed','Failed only'),('recovered','Recovered'),('cancelled','Cancelled')] %}
+      <option value="{{ value }}" {% if filters.status == value %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    {% endif %}
+  </select>
+  {% endif %}
+
+  {% if show_outcome %}
+  <select name="outcome" data-auto-submit>
+    <option value="all" {% if filters.outcome == 'all' %}selected{% endif %}>{% if outcome_context is defined and outcome_context == 'later' %}All later release results{% else %}All final outcomes{% endif %}</option>
+    <option value="completed" {% if filters.outcome == 'completed' %}selected{% endif %}>{% if outcome_context is defined and outcome_context == 'later' %}Later: completed{% else %}Final: completed{% endif %}</option>
+    <option value="failed" {% if filters.outcome == 'failed' %}selected{% endif %}>{% if outcome_context is defined and outcome_context == 'later' %}Later: failed only{% else %}Final: failed only{% endif %}</option>
+    <option value="recovered" {% if filters.outcome == 'recovered' %}selected{% endif %}>{% if outcome_context is defined and outcome_context == 'later' %}Later: recovered{% else %}Final: recovered{% endif %}</option>
+    <option value="cancelled" {% if filters.outcome == 'cancelled' %}selected{% endif %}>{% if outcome_context is defined and outcome_context == 'later' %}Later: cancelled{% else %}Final: cancelled{% endif %}</option>
+  </select>
+  {% endif %}
+
+  {% if show_indexer %}
+  <details class="multi-filter">
+    <summary>Indexer{% if filters.indexer %} · {{ filters.indexer|length }} selected{% else %} · all{% endif %}</summary>
+    <div class="multi-filter-menu">
+      {% set indexer_options = filter_indexers if filter_indexers is defined else snap.indexers %}
+      {% for x in indexer_options %}
+      {% set xname = x.name if x.name is defined else x.indexer %}
+      <label><input type="checkbox" name="indexer" value="{{ xname }}" {% if xname|lower in filters.indexer %}checked{% endif %}> {{ xname }}</label>
+      {% endfor %}
+      <button type="button" class="multi-filter-apply" data-apply-filter>Apply</button>
+    </div>
+  </details>
+  {% endif %}
+
+  {% if show_match %}
+  <select name="match" data-auto-submit>
+    <option value="all" {% if filters.match == 'all' %}selected{% endif %}>All matches</option>
+    <option value="exact" {% if filters.match == 'exact' %}selected{% endif %}>Exact</option>
+    <option value="episode" {% if filters.match == 'episode' %}selected{% endif %}>Episode fallback</option>
+    <option value="unattributed" {% if filters.match == 'unattributed' %}selected{% endif %}>Unattributed</option>
+  </select>
+  {% endif %}
+
+  {% if show_repair %}
+  <select name="repair" data-auto-submit>
+    <option value="all" {% if filters.repair == 'all' %}selected{% endif %}>All repair</option>
+    <option value="repaired" {% if filters.repair == 'repaired' %}selected{% endif %}>Repaired</option>
+    <option value="heavy" {% if filters.repair == 'heavy' %}selected{% endif %}>Heavy repair</option>
+  </select>
+  {% endif %}
+
+  {% if show_cause %}
+  <select name="cause" data-auto-submit>
+    <option value="all" {% if filters.cause == 'all' %}selected{% endif %}>All failure causes</option>
+    {% for c in snap.failure_causes %}
+    <option value="{{ c.stage }}" {% if filters.cause|lower == c.stage|lower %}selected{% endif %}>{{ c.stage }} ({{ c.count }})</option>
+    {% endfor %}
+  </select>
+  {% endif %}
+
+  {% if show_kind %}
+  <select name="kind" data-auto-submit>
+    <option value="all" {% if filters.kind == 'all' %}selected{% endif %}>All recovery types</option>
+    <option value="cross-indexer" {% if filters.kind == 'cross-indexer' %}selected{% endif %}>Cross-indexer</option>
+    <option value="same-indexer" {% if filters.kind == 'same-indexer' %}selected{% endif %}>Same-indexer</option>
+  </select>
+  {% endif %}
+  <button class="filter-reset" type="button" data-reset-filters>Reset</button>
+</form>

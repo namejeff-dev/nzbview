@@ -1,0 +1,308 @@
+{% from "_app_icon.html" import app_icon %}
+{% if release %}
+<div class="drawer-release">
+  <h2>{{ release.title }}</h2>
+  <div class="drawer-badges">
+    {% if release.recovered %}<span class="status recovered">recovered</span>
+    {% elif release.eventually_completed %}<span class="status completed">completed</span>
+    {% elif release.outcome == 'cancelled' or release.final_status == 'cancelled' %}<span class="status cancelled">cancelled</span>
+    {% elif release.outcome == 'unresolved' %}<span class="status unresolved">unresolved</span>
+    {% elif release.outcome == 'search-only' %}<span class="status search-only">search only</span>
+    {% else %}<span class="status failed">failed</span>{% endif %}
+    <span class="tag">{{ release.indexer }}</span>
+    <span class="tag">{{ release.match_method }}</span>
+    {% if release.failure_stage %}<span class="tag failure-stage-tag">{{ release.failure_stage }}</span>{% endif %}
+  </div>
+
+  <div class="drawer-metrics">
+    <div><span>Attempts</span><b>{{ release.attempts }}</b></div>
+    <div><span>Max repair</span><b>{{ release.repair_blocks }}</b></div>
+    <div><span>Final result</span><b>{{ release.final_status }}</b></div>
+    <div><span>Final time</span><b>{{ release.final_time[0:19]|replace('T',' ') }}</b></div>
+  </div>
+
+  {% if recovery %}
+  <section class="drawer-section">
+    <h3>Recovery path</h3>
+    <div class="recovery-route">
+      <span>{{ recovery.failed_via }}</span><b>→</b><span class="good">{{ recovery.recovered_via }}</span>
+      <em>{{ recovery.kind }}</em>
+    </div>
+  </section>
+  {% endif %}
+
+  {% if chain.story_blocks %}
+  <section class="drawer-section acquisition-summary-section">
+    <div class="drawer-section-head">
+      <div><h3>Attempt sequence</h3><small class="section-subtitle">Different NZB names for the same movie/episode stay in one acquisition chain.</small></div>
+    </div>
+    <div class="attempt-sequence">
+      {% for block in chain.story_blocks if block.kind not in ['search_only','pre_sab','unresolved'] %}
+      <div class="attempt-sequence-item status-{{ block.status }}">
+        <span class="attempt-sequence-number">{{ block.attempt_number }}</span>
+        <div><b>{{ block.indexer or 'unattributed' }}</b><small>{{ block.status|replace('_',' ')|title }}{% if block.search_mode == 'automatic_retry' %} · automatic retry{% elif block.search_mode == 'automatic' %} · automatic{% elif block.search_mode == 'interactive' %} · interactive{% endif %}</small></div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="drawer-section">
+    <div class="drawer-section-head">
+      <div>
+        <h3>Acquisition journey</h3>
+        <small class="section-subtitle">One media request across every observed release attempt: Arr → Prowlarr → SAB → Arr</small>
+      </div>
+      <span class="chip">{{ chain.correlation_confidence }}</span>
+    </div>
+
+    {% for block in chain.story_blocks %}
+    <details class="journey-attempt-card status-{{ block.status }}" {% if block.open_default %}open{% endif %}>
+      <summary>
+        <span class="attempt-summary-main">
+          <b>
+            {% if block.kind == 'pre_sab' %}Pre-SAB acquisition
+            {% elif block.kind == 'unresolved' %}Unresolved hand-off
+            {% elif block.kind == 'search_only' %}Search activity
+            {% else %}Attempt {{ block.attempt_number }}{% endif %}
+            {% if block.indexer %} · {{ block.indexer }}{% endif %}
+          </b>
+          <small>
+            {% if block.start_time %}{{ block.start_time[0:19]|replace('T',' ') }} → {% endif %}{{ block.final_time[0:19]|replace('T',' ') }}
+            {% if block.duration_text %} · {{ block.duration_text }}{% endif %}
+          </small>
+          <small class="attempt-flow-summary">
+            {% if block.kind == 'pre_sab' %}Search / acquisition → failed before SAB
+            {% elif block.kind == 'search_only' %}Search → results reviewed → no SAB hand-off
+            {% elif block.kind == 'unresolved' %}Search → release selection → SAB hand-off → terminal result not observed
+            {% elif block.status == 'completed' %}Search → release selection → SAB → completed{% if block.import_event %} → {{ 'imported' if block.import_event.event_type == 'import_succeeded' else 'import ' ~ block.import_event.event_type|replace('import_','') }}{% elif block.import_state and block.import_state.status in ['pending','not_observed'] %} → import not observed{% endif %}
+            {% elif block.status == 'cancelled' %}Search → release selection → SAB → cancelled / aborted
+            {% else %}Search → release selection → SAB → {{ block.failure_stage or 'failed' }}{% endif %}
+          </small>
+        </span>
+        {% if block.status == 'completed' %}
+          <span class="stage-ok-pill">{{ block.summary }}</span>
+        {% elif block.status == 'cancelled' %}
+          <span class="stage-cancelled-pill">cancelled</span>
+        {% elif block.status in ['unresolved','search-only'] %}
+          <span class="stage-neutral-pill">{{ block.status }}</span>
+        {% elif block.failure_stage and block.failure_stage not in ['Unknown','Cause unavailable'] %}
+          <span class="stage-failure-pill">{{ block.failure_stage }}</span>
+        {% else %}
+          <span class="stage-missing-pill">cause unavailable</span>
+        {% endif %}
+      </summary>
+
+      <div class="journey-attempt-body">
+        {% if block.bridge %}
+        <div class="journey-bridge">
+          <span>Why this attempt appears here</span>
+          <b>{{ block.bridge.label }}</b>
+          {% if block.bridge.confidence == 'causal' %}
+          <small>{{ block.bridge.delay_seconds }}s later · explicit Arr failed-download retry trigger retained</small>
+          {% else %}
+          <small>{{ block.bridge.delay_seconds }}s later · correlation only; no explicit retry trigger retained</small>
+          {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="journey-story">
+          {% if block.search %}
+          <div class="story-step arr-step">
+            <span class="story-dot"></span>
+            <div>
+              <div class="story-title-line"><b class="story-app-title">{{ app_icon(block.search.app, 'sm') }}<span>{{ block.search.app|title }} · {{ block.search_scope }}</span></b>{% if block.search_mode == 'automatic' %}<span class="origin-pill origin-automatic">automatic</span>{% elif block.search_mode == 'automatic_retry' %}<span class="origin-pill origin-retry">automatic retry</span>{% elif block.search_mode == 'interactive' %}<span class="origin-pill origin-interactive">interactive</span>{% elif block.search_mode == 'rss' %}<span class="origin-pill origin-rss">RSS</span>{% else %}<span class="origin-pill origin-unknown">origin unclear</span>{% endif %}</div>
+              <small>{{ block.search.time[0:19]|replace('T',' ') }}{% if block.search.media_title %} · {{ block.search.media_title }}{% endif %}{% if block.search.details.active_indexers is defined %} · {{ block.search.details.active_indexers }} active indexers{% endif %}{% if block.search_origin_confidence and block.search_origin_confidence != 'none' %} · origin confidence: {{ block.search_origin_confidence }}{% endif %}</small>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if block.prowlarr_context %}
+          <div class="story-step prowlarr-step">
+            <span class="story-dot"></span>
+            <div>
+              <b class="story-app-title">{{ app_icon('Prowlarr', 'sm') }}<span>Prowlarr · {% if block.prowlarr_context.kind == 'rss' %}RSS check{% else %}Indexer search{% endif %}{% if block.prowlarr_context.indexer %} · {{ block.prowlarr_context.indexer }}{% endif %}</span></b>
+              <small>{{ block.prowlarr_context.time[0:19]|replace('T',' ') }}{% if block.prowlarr_context.query_type %} · {{ block.prowlarr_context.query_type }}{% endif %}{% if block.prowlarr_context.query %} · query: {{ block.prowlarr_context.query }}{% endif %}{% if block.prowlarr_context.results not in [none,''] %} · {{ block.prowlarr_context.results }} results{% endif %}{% if block.prowlarr_context.source %} · source: {{ block.prowlarr_context.source }}{% endif %}</small>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if block.grab %}
+          <div class="story-step prowlarr-step">
+            <span class="story-dot"></span>
+            <div>
+              <b class="story-app-title">{{ app_icon('Prowlarr', 'sm') }}<span>Prowlarr · {% if block.search_mode == 'interactive' %}Release selected{% else %}Release grabbed{% endif %}{% if block.grab.indexer %} · {{ block.grab.indexer }}{% endif %}</span></b>
+              <small>{{ block.grab.time[0:19]|replace('T',' ') }}{% if block.grab.grab_method %} · {{ block.grab.grab_method }}{% endif %}{% if block.grab.source %} · source: {{ block.grab.source }}{% endif %} · {{ block.grab.match_method }} title</small>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if block.sent %}
+          <div class="story-step arr-step">
+            <span class="story-dot"></span>
+            <div>
+              <b class="story-app-title">{{ app_icon(block.sent.app or '', 'sm') }}<span>{{ (block.sent.app or 'Arr')|title }} · Sent to SAB{% if block.sent.indexer %} · {{ block.sent.indexer }}{% endif %}</span></b>
+              <small>{{ block.sent.time[0:19]|replace('T',' ') }}{% if block.sent.match_method %} · {{ block.sent.match_method }} release hand-off{% endif %}</small>
+            </div>
+          </div>
+          {% endif %}
+
+          {% if block.kind == 'search_only' %}
+          <div class="activity-state-box neutral-state-box">
+            <span>Search only</span><strong>No release was observed being sent to SABnzbd.</strong>
+            <small>This indexer activity is retained for search reporting but does not enter download-success metrics.</small>
+          </div>
+          {% elif block.kind == 'unresolved' %}
+          <div class="activity-state-box unresolved-state-box">
+            <span>Terminal state not observed</span>
+            <strong>No matching SAB terminal result was found after reconciling reconstructed attempts and SAB History.</strong>
+            <small>The hand-off itself is retained. The missing end state can mean an active/pending job, a restart or power interruption, a retention gap, or a removal that predates the cancellation-aware parser. It is excluded from indexer failure metrics.</small>
+          </div>
+          {% elif block.kind == 'pre_sab' %}
+          <div class="story-step failed-step">
+            <span class="story-dot"></span>
+            <div>
+              <b>Acquisition failed before SABnzbd</b>
+              <small>{{ block.final_time[0:19]|replace('T',' ') }} · {{ block.failure_reason }}</small>
+            </div>
+          </div>
+          <div class="failure-reason-box compact-cause-box">
+            <span>SAB not reached</span>
+            <strong>{{ block.failure_reason }}</strong>
+            <small>This is intentionally separate from SAB download / verification / repair / unpack failures.</small>
+          </div>
+          {% else %}
+            {% set d = block.sab_diagnostic %}
+            {% set h = block.sab_history %}
+            <div class="story-divider story-divider-branded"><span>{{ app_icon('SABnzbd', 'sm') }}<b>SAB processing</b></span></div>
+            {% if block.sab_evidence %}
+            <div class="evidence-strip"><span>Outcome evidence</span><b>{{ block.sab_evidence|replace('+',' + ')|replace('history','History API') }}</b></div>
+            {% endif %}
+
+            {% if block.status == 'cancelled' %}
+            <div class="activity-state-box cancelled-state-box">
+              <span>Cancelled / aborted</span><strong>{{ block.failure_reason or 'The download was cancelled or aborted.' }}</strong>
+              <small>Kept in activity history and excluded from indexer-quality failure metrics.</small>
+            </div>
+            {% elif block.status == 'failed' and block.failure_reason %}
+            <div class="failure-reason-box compact-cause-box">
+              <span>Causal result · {{ block.failure_stage or 'Cause unavailable' }}</span>
+              <strong>{{ block.failure_reason }}</strong>
+              <small>
+                {% if block.failure_confidence == 'high' %}High-confidence retained SAB evidence.
+                {% elif block.failure_confidence == 'medium' %}Medium-confidence classification from retained SAB evidence.
+                {% else %}No specific causal message was retained for this attempt.{% endif %}
+                {% if d and d.source %} · source: {{ d.source|replace('+',' + ') }}{% endif %}
+              </small>
+            </div>
+            {% endif %}
+
+            {% if d and d.lifecycle %}
+            <div class="stage-list inline-stage-list">
+              {% for stage in d.lifecycle %}
+              {% if not (block.provider_contributions and stage.name|lower == 'servers') %}
+              <div class="stage-row stage-{{ stage.status }}">
+                <div class="stage-name"><span class="stage-dot"></span><b>{{ stage.name }}</b><em>{{ stage.status }}</em></div>
+                <ul>
+                  {% for ev in stage.events %}
+                  <li>{% if ev.time %}<time>{{ ev.time[11:19] }}</time> · {% endif %}{{ ev.message or ev.kind }}{% if ev.details and ev.details.blocks_short %}<span class="bad"> · {{ ev.details.blocks_short }} blocks short</span>{% endif %}{% if ev.details and ev.details.recovered_later %}<span class="warn"> · recovered later</span>{% endif %}</li>
+                  {% endfor %}
+                </ul>
+              </div>
+              {% endif %}
+              {% endfor %}
+            </div>
+            {% elif h %}
+            <div class="stage-list inline-stage-list">
+              {% for stage in h.stages %}
+              {% if not (block.provider_contributions and stage.name|lower == 'servers') %}
+              <div class="stage-row stage-{{ stage.status }}">
+                <div class="stage-name"><span class="stage-dot"></span><b>{{ stage.name }}</b><em>{{ stage.status }}</em></div>
+                <ul>{% for action in stage.actions %}<li>{{ action }}</li>{% endfor %}</ul>
+              </div>
+              {% endif %}
+              {% else %}
+              <div class="empty-state compact-empty">SAB returned no structured stage entries for this history item.</div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="empty-state compact-empty">No retained SAB lifecycle evidence matched this attempt.</div>
+            {% endif %}
+
+            {% if block.provider_contributions %}
+            <div class="drawer-provider-contribution">
+              <div class="drawer-provider-head">
+                <div><span>Provider contribution</span><b>{{ block.provider_contributions|length }} {{ 'provider' if block.provider_contributions|length == 1 else 'providers' }}</b></div>
+                <small>SAB History · approximate</small>
+              </div>
+              <div class="drawer-provider-list">
+                {% for pc in block.provider_contributions %}
+                <div class="drawer-provider-row">
+                  <div class="drawer-provider-label"><b>{{ pc.provider_label }}</b><small>{{ pc.provider }}</small></div>
+                  <div class="drawer-provider-track"><i style="width: {{ pc.share }}%"></i></div>
+                  <div class="drawer-provider-value"><b>{{ "%.1f"|format(pc.share) }}%</b><small>{{ pc.bytes_human }}</small></div>
+                </div>
+                {% endfor %}
+              </div>
+              <small class="drawer-provider-note">Per-job values come from SAB's rounded Servers stage, so the split is an observed approximation rather than byte-perfect accounting.</small>
+            </div>
+            {% endif %}
+
+            {% if h and (h.download_time or h.postproc_time) %}
+            <p class="note compact-note">History API timing · download {{ h.download_time }}s · post-processing {{ h.postproc_time }}s</p>
+            {% endif %}
+
+            <div class="story-step {{ 'completed-step' if block.status == 'completed' else 'cancelled-step' if block.status == 'cancelled' else 'failed-step' }} final-story-step">
+              <span class="story-dot"></span>
+              <div>
+                <b class="story-app-title">{{ app_icon('SABnzbd', 'sm') }}<span>SAB · {{ block.status|title }}{% if block.indexer %} · {{ block.indexer }}{% endif %}</span></b>
+                <small>{{ block.final_time[0:19]|replace('T',' ') }} · {{ block.repair_blocks }} repair blocks{% if block.failure_stage and block.status == 'failed' %} · {{ block.failure_stage }}{% endif %}</small>
+              </div>
+            </div>
+
+            {% if block.follow_up and block.status == 'failed' %}
+            <div class="what-next-box">
+              <span>What happened next</span>
+              <b>{{ block.follow_up.app|title }} follow-up observed</b>
+              <small>
+                {% if block.follow_up.search_delay_seconds is not none %}new search +{{ block.follow_up.search_delay_seconds }}s{% endif %}
+                {% if block.follow_up.sent_indexer %} · next SAB hand-off via {{ block.follow_up.sent_indexer }}{% if block.follow_up.sent_delay_seconds is not none %} at +{{ block.follow_up.sent_delay_seconds }}s{% endif %}{% endif %}
+                · correlation, not proof of trigger unless Arr logs say so explicitly
+              </small>
+            </div>
+            {% endif %}
+
+            {% if block.import_event %}
+            {% set import_ok = block.import_event.event_type == 'import_succeeded' %}
+            {% set import_cancel = block.import_event.event_type == 'import_cancelled' %}
+            <div class="story-step {{ 'completed-step' if import_ok else 'cancelled-step' if import_cancel else 'failed-step' }}">
+              <span class="story-dot"></span>
+              <div>
+                <b class="story-app-title">{{ app_icon(block.import_event.app, 'sm') }}<span>{{ block.import_event.app|title }} · Import {{ 'completed' if import_ok else 'cancelled' if import_cancel else 'failed' }}</span></b>
+                <small>{{ block.import_event.time[0:19]|replace('T',' ') }}{% if block.import_event.details.file %} · {{ block.import_event.details.file }}{% endif %}{% if block.import_event.reason %} · {{ block.import_event.reason }}{% endif %}</small>
+              </div>
+            </div>
+            {% endif %}
+            {% if not block.import_event and block.import_state and block.import_state.status in ['pending','not_observed'] %}
+            <div class="story-step neutral-step import-not-observed-step">
+              <span class="story-dot"></span>
+              <div>
+                <b class="story-app-title">{{ app_icon(block.import_state.app, 'sm') }}<span>{{ block.import_state.app|title }} · Import not observed{% if block.import_state.status == 'pending' %} yet{% endif %}</span></b>
+                <small>No explicit Arr import-completion signal was retained. SAB completion is kept separate from library import and this state is not counted as an import failure.</small>
+              </div>
+            </div>
+            {% endif %}
+          {% endif %}
+        </div>
+      </div>
+    </details>
+    {% else %}
+    <div class="empty-state">No correlated Arr/Prowlarr/SAB attempt story could be reconstructed for this release.</div>
+    {% endfor %}
+
+    <p class="note journey-note">{{ chain.correlation_note }} Attempts are grouped so the acquisition context, SAB result, and observed follow-up stay together. A later search is only called causal when the retained Arr logs explicitly establish that trigger.</p>
+  </section>
+</div>
+{% else %}
+<div class="empty-state">Release details could not be resolved.</div>
+{% endif %}

@@ -1,0 +1,153 @@
+{% from "_app_icon.html" import app_icon %}
+{% macro attempt_row(x, attempt_no=None) -%}
+<article class="download-attempt-row {{ x.status }}">
+  <div class="download-attempt-result" title="This exact SAB attempt">
+    {{ app_icon('SABnzbd', 'xs') }}
+    <span class="download-result-emoji" aria-hidden="true">{% if x.status == 'completed' %}✅{% elif x.status == 'failed' %}❌{% elif x.status == 'cancelled' %}⛔{% else %}⏳{% endif %}</span>
+    <strong>{% if x.status == 'completed' %}Completed{% elif x.status == 'failed' %}Failed{% elif x.status == 'cancelled' %}Cancelled{% else %}Unresolved{% endif %}</strong>
+    {% if attempt_no %}<small class="download-attempt-number">Attempt {{ attempt_no }}</small>{% endif %}
+    {% if x.status == 'failed' and x.release_outcome == 'recovered' %}
+    <small class="download-later-recovered">♻️ later recovered</small>
+    {% endif %}
+  </div>
+
+  <div class="download-attempt-release">
+    <button class="release-link download-release-link" data-release-title="{{ x.title }}" data-release-time="{{ x.time }}" data-hours="{{ snap.hours }}">{{ x.title }}</button>
+    <div class="download-attempt-meta">
+      <span>🕒 {{ x.time[0:19]|replace('T',' ') }}</span>
+      <span>🔎 {{ x.indexer }}</span>
+      <span title="Attribution confidence">🔗 {{ x.match_method }}</span>
+      {% if x.repair_blocks > 0 %}<span class="{{ 'bad' if x.repair_blocks >= 10 else 'warn' }}">🛠️ {{ x.repair_blocks }} repair block{{ '' if x.repair_blocks == 1 else 's' }}</span>{% else %}<span>🛠️ no repair</span>{% endif %}
+    </div>
+    {% if x.status == 'failed' and x.failure_reason %}
+    <div class="download-failure-reason">{{ x.failure_reason }}</div>
+    {% endif %}
+  </div>
+</article>
+{%- endmacro %}
+
+<section class="page" data-page-title="Downloads" data-hours="{{ snap.hours }}" data-scope-mode="{{ sample_scope.mode }}" data-sample-type="downloads" data-sample-n="{{ sample_scope.n }}">
+  {% set subtitle = "SAB download attempts grouped by the Sonarr/Radarr action that produced them, with the exact grabbed release underneath." %}
+  {% set scope_target = "#downloads-page-workspace" %}{% set scope_select = "#downloads-page-workspace" %}
+  {% include "_page_head.html" %}
+
+  <div id="downloads-page-workspace" data-scope-state data-scope-mode="{{ sample_scope.mode }}" data-sample-type="downloads" data-sample-n="{{ sample_scope.n }}">
+  {% if sample_scope.mode == 'sample' %}
+    {% include "_sample_scope_banner.html" %}
+    {% include "_downloads_sample_charts.html" %}
+  {% endif %}
+
+  <div id="downloads-workspace">
+  {% set filter_target = "#downloads-workspace" %}{% set filter_select = "#downloads-workspace" %}
+  {% set show_status = true %}{% set status_kind = 'attempt' %}
+  {% set show_outcome = false %}{% set show_indexer = true %}
+  {% set show_match = true %}{% set show_repair = true %}{% set show_kind = false %}
+  {% set search_placeholder = 'Search show, movie, episode or release…' %}
+  {% include "_filter_form.html" %}
+
+  {% set scope_query = "&scope=sample&sample_type=downloads&sample_n=" ~ sample_scope.n if sample_scope.mode == 'sample' else "" %}
+  {% set filter_query = "hours=" ~ snap.hours ~ scope_query ~ "&q=" ~ filters.q|urlencode ~ "&status=" ~ filters.status ~ filters.indexer_query ~ "&match=" ~ filters.match ~ "&repair=" ~ filters.repair %}
+  {% set base_query = filter_query ~ "&sort=" ~ filters.sort ~ "&dir=" ~ filters.dir %}
+
+  <section class="panel download-media-panel">
+    <div class="panel-head download-panel-head">
+      <div>
+        <h2>{% if sample_scope.mode == 'sample' %}Recent downloads by media{% else %}Download attempts by media{% endif %}</h2>
+        <p>Observed Sonarr season searches stay together; single-episode searches and movies remain their own groups.</p>
+      </div>
+      <div class="download-panel-tools">
+        <span class="chip">{{ filtered_attempt_total }} attempt{{ '' if filtered_attempt_total == 1 else 's' }} · {{ pager.total }} group{{ '' if pager.total == 1 else 's' }}</span>
+        <button type="button" class="button-quiet" data-download-expand-all>Expand all</button>
+        <button type="button" class="button-quiet" data-download-collapse-all>Collapse all</button>
+      </div>
+    </div>
+
+    <div class="download-media-list" data-download-tree>
+    {% for g in download_groups %}
+      <details class="download-media-group {{ 'download-season-group' if g.kind == 'season' else '' }}">
+        <summary>
+          <div class="download-media-title-wrap">
+            <span class="download-media-icon" aria-hidden="true">{% if g.kind == 'season' %}📚{% elif g.media_app == 'sonarr' %}📺{% elif g.media_app == 'radarr' %}🎬{% else %}📥{% endif %}</span>
+            <div class="download-media-title">
+              <div class="download-media-heading-line">
+                <strong>{{ g.media }}</strong>
+                {{ app_icon('Sonarr' if g.kind == 'season' else g.media_app, 'xs') }}
+                {% if g.final_time %}<span class="download-media-time" title="{{ 'Fully downloaded' if g.time_kind == 'completed' else 'Last activity' }}">🕒 {{ g.final_time[0:16]|replace('T',' ') }}</span>{% endif %}
+              </div>
+              {% if g.kind == 'season' %}
+              <small>Observed Sonarr season search{% if g.season_search_mode and g.season_search_mode != 'unknown' %} · {{ g.season_search_mode|replace('_',' ') }}{% endif %}{% if g.season_search_reports_downloaded is not none %} · {{ g.season_search_reports_downloaded }} report{{ '' if g.season_search_reports_downloaded == 1 else 's' }} selected{% endif %}{% if g.time_kind != 'completed' and g.final_time %} · last activity{% endif %}</small>
+              {% else %}
+              <small>{{ g.attempt_count }} attempt{{ '' if g.attempt_count == 1 else 's' }}{% if g.indexers %} · {{ g.indexers|join(', ') }}{% endif %}{% if g.time_kind != 'completed' and g.final_time %} · last activity{% endif %}</small>
+              {% endif %}
+            </div>
+          </div>
+          <div class="download-media-badges">
+            {% if g.kind == 'season' %}
+              {% if g.episode_count %}<span class="download-count {{ 'good' if g.episode_completed == g.episode_count else 'warn' if g.episode_completed else 'bad' }}">{% if g.episode_completed == g.episode_count %}✅{% else %}📺{% endif %} {{ g.episode_completed }}/{{ g.episode_count }} episodes completed</span>{% endif %}
+              {% if g.season_pack_count %}<span class="download-count {{ 'good' if g.season_pack_completed == g.season_pack_count else 'warn' }}">📦 {{ g.season_pack_completed }}/{{ g.season_pack_count }} pack{{ '' if g.season_pack_count == 1 else 's' }} completed</span>{% endif %}
+              <span class="download-count muted">{{ g.attempt_count }} attempt{{ '' if g.attempt_count == 1 else 's' }}</span>
+              {% if g.failed_attempts %}<span class="download-count bad">❌ {{ g.failed_attempts }} failed</span>{% endif %}
+            {% else %}
+              {% if g.completed %}<span class="download-count good">✅ {{ g.completed }} completed</span>{% endif %}
+              {% if g.failed %}<span class="download-count bad">❌ {{ g.failed }} failed</span>{% endif %}
+              {% if g.cancelled %}<span class="download-count warn">⛔ {{ g.cancelled }} cancelled</span>{% endif %}
+              {% if g.unresolved %}<span class="download-count muted">⏳ {{ g.unresolved }} unresolved</span>{% endif %}
+            {% endif %}
+            <span class="download-expand-hint">⌄</span>
+          </div>
+        </summary>
+
+        {% if g.kind == 'season' %}
+        <div class="download-season-body">
+          {% for child in g.children %}
+            {% if child.needs_details %}
+            <details class="download-episode-group">
+              <summary>
+                <div class="download-episode-title">
+                  <span aria-hidden="true">{% if child.kind == 'season_pack' %}📦{% else %}📺{% endif %}</span>
+                  <strong>{{ child.media }}</strong>
+                  {% if child.final_time %}<span class="download-episode-time" title="{{ 'Downloaded' if child.time_kind == 'completed' else 'Last activity' }}">🕒 {{ child.final_time[0:16]|replace('T',' ') }}</span>{% endif %}
+                  <small>{{ child.attempt_count }} attempt{{ '' if child.attempt_count == 1 else 's' }}{% if child.time_kind != 'completed' and child.final_time %} · last activity{% endif %}</small>
+                </div>
+                <div class="download-media-badges">
+                  {% if child.eventually_completed %}<span class="download-count good">✅ completed</span>{% endif %}
+                  {% if child.failed %}<span class="download-count bad">❌ {{ child.failed }} failed</span>{% endif %}
+                  {% if child.cancelled %}<span class="download-count warn">⛔ {{ child.cancelled }} cancelled</span>{% endif %}
+                  {% if child.unresolved %}<span class="download-count muted">⏳ {{ child.unresolved }} unresolved</span>{% endif %}
+                  <span class="download-expand-hint">⌄</span>
+                </div>
+              </summary>
+              <div class="download-attempt-list download-nested-attempts">
+                {% for x in child.attempts %}{{ attempt_row(x, loop.index) }}{% endfor %}
+              </div>
+            </details>
+            {% else %}
+            <div class="download-episode-compact">
+              <div class="download-episode-compact-head">
+                <span aria-hidden="true">{% if child.kind == 'season_pack' %}📦{% else %}📺{% endif %}</span>
+                <strong>{{ child.media }}</strong>
+                {% if child.final_time %}<span class="download-episode-time" title="Downloaded">🕒 {{ child.final_time[0:16]|replace('T',' ') }}</span>{% endif %}
+                <span class="download-count good">✅ completed</span>
+              </div>
+              {{ attempt_row(child.attempts[0]) }}
+            </div>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="download-attempt-list">
+          {% for x in g.attempts %}{{ attempt_row(x, loop.index if g.attempt_count > 1 else none) }}{% endfor %}
+        </div>
+        {% endif %}
+      </details>
+    {% else %}
+      <div class="empty-state">No download attempts match these filters.</div>
+    {% endfor %}
+    </div>
+
+    {% set pager_target = "#downloads-workspace" %}{% set pager_select = "#downloads-workspace" %}
+    {% include "_pager.html" %}
+  </section>
+  </div>
+  </div>
+</section>

@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Setup · nzbview</title><link rel="icon" href="/static/nzbview_logo.svg">
+<link rel="stylesheet" href="/static/app.css?v=2.15.2"><script src="/static/setup.js" defer></script></head>
+<body class="setup-body"><main class="setup-card">
+<img src="/static/nzbview_logo.svg" alt="" width="64" height="64">
+<h1>Welcome to nzbview</h1><p>Connect your services to start exploring download and search evidence.</p>
+{% if message %}<p class="note">{{ message }}</p>{% endif %}
+<ol><li>Copy <code>collector_config.example.json</code> to <code>collector_config.json</code>.</li>
+<li>Set the SABnzbd and Prowlarr URLs, API keys, log paths, and the timezone used in your logs. Sonarr and Radarr are optional.</li>
+<li>Run the collector below, or run <code>python collect.py</code> in your terminal.</li></ol>
+<p>Configuration: <code>{{ config_path }}</code><br>Database: <code>{{ db_path }}</code></p>
+<p id="setup-config-status">{{ collector_config_message }}</p>
+<button id="setup-collect" class="primary-btn" type="button" {% if not collector_configured %}disabled{% endif %}>Run initial collection</button>
+<p id="setup-run-status" role="status" aria-live="polite"></p>
+<p><a href="/">Open dashboard</a> · <a href="/setup">Recheck configuration</a></p>
+<p class="note">Already using nzbview? Set <code>db</code> to the absolute path of your existing database. See README.md for upgrade instructions.</p>
+</main></body></html>

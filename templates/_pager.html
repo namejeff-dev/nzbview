@@ -1,0 +1,29 @@
+{% if pager.pages > 1 %}
+{% set pt = pager_target|default('#page-content') %}
+{% set ps = pager_select|default('') %}
+<div class="pager">
+  <span>{{ pager.total }} results · page {{ pager.page }} / {{ pager.pages }}</span>
+  <div class="pager-actions">
+    {% if pager.has_prev %}
+    <a href="?{{ base_query }}&page=1"
+       hx-get="{{ request.url.path }}?{{ base_query }}&page=1"
+       hx-target="{{ pt }}"{% if ps %} hx-select="{{ ps }}" hx-swap="outerHTML"{% endif %} hx-push-url="true">⇤ First</a>
+    <a href="?{{ base_query }}&page={{ pager.page - 1 }}"
+       hx-get="{{ request.url.path }}?{{ base_query }}&page={{ pager.page - 1 }}"
+       hx-target="{{ pt }}"{% if ps %} hx-select="{{ ps }}" hx-swap="outerHTML"{% endif %} hx-push-url="true">← Previous</a>
+    {% endif %}
+    <span class="pager-jump" data-page-jump data-page-target="{{ pt }}" data-page-select="{{ ps }}">
+      <label>Page <input type="number" min="1" max="{{ pager.pages }}" value="{{ pager.page }}" inputmode="numeric" data-page-number aria-label="Page number"></label>
+      <button type="button" data-page-jump-button>Go</button>
+    </span>
+    {% if pager.has_next %}
+    <a href="?{{ base_query }}&page={{ pager.page + 1 }}"
+       hx-get="{{ request.url.path }}?{{ base_query }}&page={{ pager.page + 1 }}"
+       hx-target="{{ pt }}"{% if ps %} hx-select="{{ ps }}" hx-swap="outerHTML"{% endif %} hx-push-url="true">Next →</a>
+    <a href="?{{ base_query }}&page={{ pager.pages }}"
+       hx-get="{{ request.url.path }}?{{ base_query }}&page={{ pager.pages }}"
+       hx-target="{{ pt }}"{% if ps %} hx-select="{{ ps }}" hx-swap="outerHTML"{% endif %} hx-push-url="true">Last ⇥</a>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

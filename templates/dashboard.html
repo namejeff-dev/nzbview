@@ -1,0 +1,201 @@
+<section class="page" data-page-title="Dashboard" data-hours="{{ snap.hours }}">
+  {% set subtitle = "At-a-glance health, download outcomes, and indexer quality." %}
+  {% include "_page_head.html" %}
+
+  <div class="stat-grid stat-grid-4">
+    <article class="stat-card">
+      <div class="stat-icon violet">%</div>
+      <div>
+        <span>Attempt success <i class="help-tip" tabindex="0" data-tip="Completed SAB attempts divided by quality-eligible terminal attempts. Explicit cancellations/aborts are excluded.">?</i></span>
+        {% if snap.sab.attempt_success is not none %}
+        <strong data-live-value data-live-key="dashboard-attempt-success" class="{{ 'good' if snap.sab.attempt_success >= 70 else 'bad' }}">{{ "%.2f"|format(snap.sab.attempt_success) }}%</strong>
+        {% else %}
+        <strong class="muted-number">—</strong>
+        {% endif %}
+        <small>{{ snap.sab.completed_attempts }} / {{ snap.sab.quality_attempts }} eligible attempts{% if snap.sab.attempt_success_delta_pp is not none %} · <span class="{{ 'good' if snap.sab.attempt_success_delta_pp > 0 else 'bad' if snap.sab.attempt_success_delta_pp < 0 else '' }}">{{ "%+.2f"|format(snap.sab.attempt_success_delta_pp) }} pp</span> vs previous{% elif not snap.sab.quality_attempts %} · no eligible attempts in window{% endif %}</small>
+        {% if snap.sab.attempt_success_delta_pp is not none %}<small class="sample-context">sample: {{ snap.sab.quality_attempts }} now · {{ snap.sab.previous_attempts }} previous{% if snap.sab.cancelled_attempts %} · {{ snap.sab.cancelled_attempts }} cancelled excluded{% endif %}</small>{% endif %}
+      </div>
+    </article>
+    <article class="stat-card">
+      <div class="stat-icon green">✓</div>
+      <div>
+        <span>Eventual success <i class="help-tip" tabindex="0" data-tip="Unique releases whose final observed outcome completed, including releases recovered after an earlier failure.">?</i></span>
+        {% if snap.sab.eventual_success is not none %}
+        <strong data-live-value data-live-key="dashboard-eventual-success" class="{{ 'good' if snap.sab.eventual_success >= 70 else 'warn' }}">{{ "%.2f"|format(snap.sab.eventual_success) }}%</strong>
+        {% else %}
+        <strong class="muted-number">—</strong>
+        {% endif %}
+        <small>{{ snap.sab.eventually_completed }} / {{ snap.sab.quality_unique_releases }} eligible releases{% if snap.sab.eventual_success_delta_pp is not none %} · <span class="{{ 'good' if snap.sab.eventual_success_delta_pp > 0 else 'bad' if snap.sab.eventual_success_delta_pp < 0 else '' }}">{{ "%+.2f"|format(snap.sab.eventual_success_delta_pp) }} pp</span> vs previous{% elif not snap.sab.quality_unique_releases %} · no eligible releases in window{% endif %}</small>
+        {% if snap.sab.eventual_success_delta_pp is not none %}<small class="sample-context">sample: {{ snap.sab.quality_unique_releases }} now · {{ snap.sab.previous_unique_releases }} previous{% if snap.sab.cancelled_releases %} · {{ snap.sab.cancelled_releases }} cancelled excluded{% endif %}</small>{% endif %}
+      </div>
+    </article>
+    <article class="stat-card">
+      <div class="stat-icon blue">↻</div>
+      <div><span>Recovered <i class="help-tip" tabindex="0" data-tip="Unique releases with a failed attempt followed later by a successful attempt.">?</i></span><strong data-live-value data-live-key="dashboard-recovered">{{ snap.sab.recovered }}</strong><small>failed → completed</small></div>
+    </article>
+    <article class="stat-card">
+      <div class="stat-icon amber">!</div>
+      <div><span>Heavy repair <i class="help-tip" tabindex="0" data-tip="Unique releases with 10 or more observed repair blocks.">?</i></span><strong data-live-value data-live-key="dashboard-heavy-repair">{{ snap.sab.heavy_repair_releases }}</strong><small>{{ "%.2f"|format(snap.sab.heavy_pct or 0) }}% of releases</small></div>
+    </article>
+  </div>
+
+  <section class="dashboard-trends">
+    <div class="dashboard-trends-head">
+      <div><h2>Live trends</h2><p>Window-aware trends rebuilt from retained SQLite evidence whenever the page refreshes.</p></div>
+      <span class="chip">{{ snap.quality_bucket_hours }}h buckets · {{ snap.hours }}h window</span>
+    </div>
+    <div class="dashboard-chart-grid">
+      <section class="panel trend-card">
+        <div class="panel-head"><div><h2>Acquisition outcomes</h2><small class="panel-subtitle">Clean completions, recoveries, and failed-only releases.</small></div><a href="/releases?hours={{ snap.hours }}" hx-get="/releases?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">Open →</a></div>
+        <div class="multi-series-chart" data-chart-style="area" data-chart-title="Acquisition outcomes" data-series='{{ snap.acquisition_outcome_series | tojson }}' data-value-format="count" data-scale="zero"></div>
+      </section>
+      <section class="panel trend-card">
+        <div class="panel-head"><div><h2>Indexer final success</h2><small class="panel-subtitle">Unique-release final outcome; dynamically discovered indexers.</small></div><a href="/indexers?hours={{ snap.hours }}" hx-get="/indexers?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">Compare →</a></div>
+        <div class="multi-series-chart" data-chart-style="area" data-chart-title="Indexer final success" data-sample-label="releases" data-series='{{ snap.dashboard_indexer_success_series | tojson }}' data-value-format="percent" data-scale="percent"></div>
+      </section>
+      <section class="panel trend-card">
+        <div class="panel-head"><div><h2>Wanted-quality coverage</h2><small class="panel-subtitle">Target-hit searches ÷ target-known opportunities; download outcome excluded.</small></div><a href="/raw-search-results?hours={{ snap.hours }}" hx-get="/raw-search-results?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">Raw results →</a></div>
+        <div class="multi-series-chart" data-chart-style="area" data-chart-title="Wanted-quality coverage" data-sample-label="target opportunities" data-series='{{ snap.dashboard_search_coverage_series | tojson }}' data-value-format="percent" data-scale="percent"></div>
+      </section>
+      <section class="panel trend-card">
+        <div class="panel-head"><div><h2>Provider article availability</h2><small class="panel-subtitle">SAB server-counter availability; providers discovered from stored snapshots.</small></div><a href="/providers?hours={{ snap.hours }}" hx-get="/providers?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">Providers →</a></div>
+        <div class="multi-series-chart" data-chart-style="area" data-chart-title="Provider article availability" data-series='{{ snap.provider_availability_series | tojson }}' data-value-format="percent3" data-scale="percent"></div>
+      </section>
+    </div>
+  </section>
+
+  <div class="layout-2 dashboard-insight-row">
+    <section class="panel">
+      <div class="panel-head"><h2>Health summary</h2><span class="chip">selected window</span></div>
+      <div class="health-summary-grid">
+        {% for h in snap.health_summary %}
+        {% set hp = h.path ~ ('&' if '?' in h.path else '?') ~ 'hours=' ~ snap.hours %}
+        <a class="health-item health-{{ h.tone }}" href="{{ hp }}" hx-get="{{ hp }}" hx-target="#page-content" hx-push-url="true">
+          <span>{{ h.label }}</span><strong>{{ h.value }}</strong><small>{{ h.detail }} · open →</small>
+        </a>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Biggest changes</h2><span class="chip">vs previous {{ snap.hours }}h</span></div>
+      <div class="change-list">
+        {% for x in snap.notable_changes %}
+        {% set xp = x.path ~ ('&' if '?' in x.path else '?') ~ 'hours=' ~ snap.hours %}
+        <a href="{{ xp }}" hx-get="{{ xp }}" hx-target="#page-content" hx-push-url="true" class="change-row">
+          <div><strong>{{ x.label }}</strong><small>{{ x.current_sample }} now · {{ x.previous_sample }} previous</small></div>
+          <b class="{{ 'good' if x.delta_pp > 0 else 'bad' if x.delta_pp < 0 else '' }}">{{ "%+.2f"|format(x.delta_pp) }} pp</b>
+        </a>
+        {% else %}
+        <div class="empty-state compact-empty">A complete previous-window sample is not available yet.</div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  {% if snap.failure_causes %}
+  <section class="panel compact-panel">
+    <div class="panel-head"><h2>Unresolved failure causes</h2><a href="/failures" hx-get="/failures?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">Investigate →</a></div>
+    <div class="cause-grid">
+      {% for c in snap.failure_causes[:6] %}
+      <a class="cause-card" href="/failures?hours={{ snap.hours }}&cause={{ c.stage|urlencode }}" hx-get="/failures?hours={{ snap.hours }}&cause={{ c.stage|urlencode }}" hx-target="#page-content" hx-push-url="true">
+        <span>{{ c.stage }}</span><strong>{{ c.count }}</strong>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="layout-2">
+    <section class="panel">
+      <div class="panel-head"><h2>Last collection</h2><span class="chip">new since previous run</span></div>
+      <div class="mini-grid">
+        <div class="mini"><span>SAB completed</span><strong data-live-value data-live-key="dashboard-last-sab-completed" class="good">{{ snap.last_collection.sab_live_completed }}</strong></div>
+        <div class="mini"><span>SAB failed</span><strong data-live-value data-live-key="dashboard-last-sab-failed" class="bad">{{ snap.last_collection.sab_live_failed }}</strong></div>
+        <div class="mini"><span>SAB cancelled</span><strong data-live-value data-live-key="dashboard-last-sab-cancelled" class="warn">{{ snap.last_collection.sab_live_cancelled }}</strong></div>
+        <div class="mini"><span>Prowlarr searches</span><strong data-live-value data-live-key="dashboard-last-prowlarr-searches">{{ snap.last_collection.prowlarr_live_searches }}</strong></div>
+        <div class="mini"><span>Arr events</span><strong data-live-value data-live-key="dashboard-last-arr-events">{{ snap.last_collection.sonarr_live_events + snap.last_collection.radarr_live_events }}</strong></div>
+      </div>
+      {% set backfill_total = snap.last_collection.sab_backfill_completed + snap.last_collection.sab_backfill_failed + snap.last_collection.sab_backfill_cancelled + snap.last_collection.prowlarr_backfill_searches + snap.last_collection.sonarr_backfill_events + snap.last_collection.radarr_backfill_events %}
+      {% if backfill_total %}
+      <div class="backfill-strip">
+        <span>Historical backfill imported this run</span>
+        <b>SAB {{ snap.last_collection.sab_backfill_completed }} completed / {{ snap.last_collection.sab_backfill_failed }} failed / {{ snap.last_collection.sab_backfill_cancelled }} cancelled · Prowlarr {{ snap.last_collection.prowlarr_backfill_searches }} searches · Sonarr {{ snap.last_collection.sonarr_backfill_events }} · Radarr {{ snap.last_collection.radarr_backfill_events }}</b>
+      </div>
+      {% endif %}
+      <div class="delta-list">
+        {% for x in snap.last_collection.indexer_delta %}
+        <div><span>{{ x.indexer }}</span><b>+{{ x.queries_delta }} queries · +{{ x.grabs_delta }} grabs</b></div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Attribution quality</h2><a href="/diagnostics" hx-get="/diagnostics?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">Details →</a></div>
+      <div class="confidence-grid">
+        <div><strong data-live-value data-live-key="dashboard-attribution-exact" class="good">{{ snap.release_confidence.exact }}</strong><span>Exact title</span></div>
+        <div><strong data-live-value data-live-key="dashboard-attribution-episode" class="blue-text">{{ snap.release_confidence.episode }}</strong><span>Episode fallback</span></div>
+        <div><strong data-live-value data-live-key="dashboard-attribution-unattributed" class="{{ 'good' if snap.release_confidence.unattributed == 0 else 'warn' }}">{{ snap.release_confidence.unattributed }}</strong><span>Unattributed</span></div>
+      </div>
+    </section>
+  </div>
+
+  <div class="layout-2">
+    <section class="panel">
+      <div class="panel-head"><h2>Provider</h2><a href="/providers" hx-get="/providers?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">Open →</a></div>
+      {% for p in snap.providers %}
+      <div class="provider-card">
+        <div><span class="eyebrow">{{ p.provider_label }} · {{ p.provider }}</span><strong>{{ "%.3f"|format(p.availability or 0) }}%</strong><small>article availability{% if p.contribution_bytes %} · {{ "%.1f"|format(p.contribution_share or 0) }}% observed traffic share{% endif %}</small></div>
+        <dl><div><dt>Today</dt><dd>{{ p.today }}</dd></div><div><dt>Window contribution</dt><dd>{{ p.contribution_bytes_human }}</dd></div><div><dt>Articles requested</dt><dd>{{ "{:,}".format(p.tried) }}</dd></div><div><dt>Unavailable</dt><dd>{{ "{:,}".format(p.unavailable_counter) }}</dd></div></dl>
+      </div>
+      {% endfor %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Indexer quality</h2><a href="/indexers" hx-get="/indexers?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">Compare →</a></div>
+      <div class="quality-list">
+        {% for x in snap.release_stats %}
+        {% set credit = (snap.recovery_credit | selectattr("indexer","equalto",x.indexer) | list | first) %}
+        <div class="quality-row">
+          <div><strong>{{ x.indexer }}</strong><span>{{ x.releases }} releases · {{ credit.rescued_from_others if credit else 0 }} rescues</span></div>
+          <div class="progress"><i style="width:{{ x.success or 0 }}%" class="{{ 'bar-good' if (x.success or 0) >= 70 else 'bar-bad' }}"></i></div>
+          <b class="{{ 'good' if (x.success or 0) >= 70 else 'bad' }}">{{ "%.2f"|format(x.success or 0) }}%</b>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+
+  <div class="layout-2 dashboard-bottom">
+    <section class="panel">
+      <div class="panel-head"><h2>Recent failed-only releases</h2><a href="/failures" hx-get="/failures?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">View all →</a></div>
+      <div class="activity-list">
+        {% for x in snap.recent_failed_only[:7] %}
+        <div class="activity-item">
+          <span class="activity-dot bad-bg"></span>
+          <div class="activity-title">
+            <button class="release-link activity-release" data-release-title="{{ x.title }}" data-release-time="{{ x.final_time or x.time }}" data-hours="{{ snap.hours }}">{{ x.title }}</button>
+            <small>{{ x.indexer }} · {{ x.match_method }} · {{ x.repair_blocks }} repair blocks{% if x.failure_stage %} · {{ x.failure_stage }}{% endif %}</small>
+          </div>
+          <time>{{ x.final_time[5:16]|replace('T',' ') }}</time>
+        </div>
+        {% else %}
+        <div class="empty-state">No failed-only releases in this activity window.</div>
+        {% endfor %}
+      </div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Recent recoveries</h2><a href="/recovered" hx-get="/recovered?hours={{ snap.hours }}" hx-target="#page-content" hx-push-url="true">View all →</a></div>
+      <div class="activity-list">
+        {% for x in snap.recoveries[:7] %}
+        <div class="activity-item">
+          <span class="activity-dot good-bg"></span>
+          <div class="activity-title"><button class="release-link activity-release" data-release-title="{{ x.title }}" data-release-time="{{ x.final_time or x.time }}" data-hours="{{ snap.hours }}">{{ x.title }}</button><small>{{ x.failed_via }} → {{ x.recovered_via }} · {{ x.kind }}</small></div>
+          <span class="tag">{{ x.repair_blocks }} repair</span>
+        </div>
+        {% endfor %}
+      </div>
+    </section>
+  </div>
+</section>

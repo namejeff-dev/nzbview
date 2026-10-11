@@ -1,0 +1,144 @@
+{% from "_app_icon.html" import app_icon %}
+<section class="page" data-page-title="Diagnostics" data-hours="{{ snap.hours }}">
+  {% set subtitle = "Collector confidence, rotating-log continuity, evidence health, and database state." %}
+  {% include "_page_head.html" %}
+
+  {% if snap.source_errors %}
+  <section class="panel"><div class="panel-head"><h2>Unavailable sources in the last collection</h2><span class="chip">partial collection</span></div>
+    <p class="note">Retained logs were imported. API-dependent metrics may be stale or incomplete.</p>
+    <ul>{% for source, error in snap.source_errors.items() %}<li><strong>{{ source }}</strong>: {{ error }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+  <div class="layout-2">
+    <section class="panel">
+      <div class="panel-head"><h2>Attribution confidence</h2><span class="chip">unique releases</span></div>
+      <div class="confidence-grid">
+        <div><strong class="good">{{ snap.release_confidence.exact }}</strong><span>Exact title</span></div>
+        <div><strong class="blue-text">{{ snap.release_confidence.episode }}</strong><span>Episode fallback</span></div>
+        <div><strong class="{{ 'good' if snap.release_confidence.unattributed == 0 else 'warn' }}">{{ snap.release_confidence.unattributed }}</strong><span>Unattributed</span></div>
+      </div>
+      <p class="note">Episode fallback runs only when exact normalized-title attribution fails.</p>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head"><h2>Database</h2><span class="chip">read only</span></div>
+      <div class="metric-grid">
+        <div><span>SAB attempts</span><b>{{ snap.counts.sab_attempts }}</b></div>
+        <div><span>SAB history detail</span><b>{{ snap.counts.sab_history }}</b></div>
+        <div><span>SAB log segments</span><b>{{ snap.counts.sab_log_segments }}</b></div>
+        <div><span>SAB lifecycle events</span><b>{{ snap.counts.sab_log_events }}</b></div>
+        <div><span>Reconstructed attempts</span><b>{{ snap.counts.sab_attempt_diagnostics }}</b></div>
+        <div><span>Prowlarr history</span><b>{{ snap.counts.prowlarr_history }}</b></div>
+        <div><span>Prowlarr log segments</span><b>{{ snap.counts.prowlarr_log_segments }}</b></div>
+        <div><span>Arr orchestration events</span><b>{{ snap.counts.arr_events }}</b></div>
+        <div><span>Arr log segments</span><b>{{ snap.counts.arr_log_segments }}</b></div>
+        <div><span>Provider snapshots</span><b>{{ snap.counts.provider_snapshots }}</b></div>
+        <div><span>Log searches</span><b>{{ snap.counts.prowlarr_searches }}</b></div>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="panel-head"><h2 class="app-heading diagnostics-live-logo">{{ app_icon('SABnzbd', 'md') }}<span>SAB rotating-log coverage</span></h2><span class="chip">v7.11.0 lifecycle parser</span></div>
+    <div class="metric-grid">
+      <div><span>Segments found last run</span><b>{{ snap.last_collection.sab_segments_found }}</b></div>
+      <div><span>Segments read last run</span><b>{{ snap.last_collection.sab_segments_read }}</b></div>
+      <div><span>New segments</span><b>{{ snap.last_collection.sab_new_segments }}</b></div>
+      <div><span>Lines read</span><b>{{ snap.last_collection.sab_lines }}</b></div>
+      <div><span>Lifecycle events imported</span><b>{{ snap.last_collection.sab_lifecycle_events }}</b></div>
+      <div><span>Retained lifecycle events</span><b>{{ snap.counts.sab_log_events }}</b></div>
+      <div><span>Rotation continuity</span><b class="{{ 'good' if snap.last_collection.sab_continuity_status == 'ok' else 'warn' if snap.last_collection.sab_continuity_status in ['possible_gap','unverified'] else '' }}">{{ snap.last_collection.sab_continuity_status|replace('_',' ') }}</b></div>
+      <div><span>Retained overlap</span><b>{{ snap.last_collection.sab_continuity_overlap }} segment{{ '' if snap.last_collection.sab_continuity_overlap == 1 else 's' }}</b></div>
+    </div>
+    {% if snap.last_collection.sab_continuity_message %}<p class="note {{ 'warn-note' if snap.last_collection.sab_continuity_status == 'possible_gap' else '' }}">{{ snap.last_collection.sab_continuity_message }}</p>{% endif %}
+    <p class="note">v7.11.0 treats <code>sabnzbd.log</code> plus numbered rotations such as <code>.1/.2/.3</code> as one chronological stream. Segment identity is content-based, so SAB renaming a rotated file does not cause it to be re-imported. Continuity is considered anchored when at least one segment from the previous observation still survives; if the entire retained family changed between runs, nzbview warns that a gap is possible rather than claiming data was definitely lost.</p>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2 class="app-heading app-heading-stack diagnostics-live-logo"><span class="app-logo-stack">{{ app_icon('Prowlarr', 'md') }}{{ app_icon('Sonarr', 'md') }}{{ app_icon('Radarr', 'md') }}</span><span>Prowlarr + Arr rotating-log coverage</span></h2><span class="chip">v7.11.0 orchestration parser</span></div>
+    <div class="metric-grid">
+      <div><span>Prowlarr segments found</span><b>{{ snap.last_collection.prowlarr_segments_found }}</b></div>
+      <div><span>Prowlarr segments read</span><b>{{ snap.last_collection.prowlarr_segments_read }}</b></div>
+      <div><span>Prowlarr new segments</span><b>{{ snap.last_collection.prowlarr_new_segments }}</b></div>
+      <div><span>Sonarr segments found</span><b>{{ snap.last_collection.sonarr_segments_found }}</b></div>
+      <div><span>Sonarr lines read</span><b>{{ snap.last_collection.sonarr_lines }}</b></div>
+      <div><span>Sonarr events imported</span><b>{{ snap.last_collection.sonarr_events }}</b></div>
+      <div><span>Radarr segments found</span><b>{{ snap.last_collection.radarr_segments_found }}</b></div>
+      <div><span>Radarr lines read</span><b>{{ snap.last_collection.radarr_lines }}</b></div>
+      <div><span>Radarr events imported</span><b>{{ snap.last_collection.radarr_events }}</b></div>
+    </div>
+    <p class="note">v7.11.0 treats the normal and debug rotations for Prowlarr, Sonarr and Radarr as content-identified chronological families — for example <code>sonarr.txt/.0.txt</code> plus <code>sonarr.debug.txt/.debug.1.txt</code>. Duplicate INFO lines are deduplicated. Debug parsing is deliberately narrow: only high-value search-origin, explicit retry, SAB hand-off, import/history-cleanup and download-client evidence is retained.</p>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2 class="app-heading app-heading-stack diagnostics-live-logo"><span class="app-logo-stack">{{ app_icon('Sonarr', 'md') }}{{ app_icon('Radarr', 'md') }}</span><span>Arr orchestration in selected window</span></h2><span class="chip">{{ snap.hours }}h</span></div>
+    <div class="metric-grid">
+      <div><span>Searches observed</span><b>{{ snap.arr_event_counts.search_started }}</b></div>
+      <div><span>RSS syncs observed</span><b>{{ snap.arr_event_counts.rss_started }}</b></div>
+      <div><span>Sent to SAB</span><b>{{ snap.arr_event_counts.sent_to_sab }}</b></div>
+      <div><span>Pre-SAB grab failures</span><b class="{{ 'bad' if snap.arr_event_counts.grab_failed else '' }}">{{ snap.arr_event_counts.grab_failed }}</b></div>
+      <div><span>Explicit auto retries</span><b class="{{ 'warn' if snap.arr_event_counts.retry_search_intent else '' }}">{{ snap.arr_event_counts.retry_search_intent }}</b></div>
+      <div><span>Import successes</span><b class="good">{{ snap.arr_event_counts.import_succeeded }}</b></div>
+      <div><span>Import failures</span><b class="{{ 'bad' if snap.arr_event_counts.import_failed else '' }}">{{ snap.arr_event_counts.import_failed }}</b></div>
+      <div><span>Import cancellations</span><b class="{{ 'warn' if snap.arr_event_counts.import_cancelled else '' }}">{{ snap.arr_event_counts.import_cancelled }}</b></div>
+      <div><span>Arr download cancellations</span><b class="{{ 'warn' if snap.arr_event_counts.download_cancelled else '' }}">{{ snap.arr_event_counts.download_cancelled }}</b></div>
+      <div><span>Arr history removals</span><b>{{ snap.arr_event_counts.history_removed }}</b></div>
+      <div><span>SAB unreachable events</span><b class="{{ 'warn' if snap.arr_event_counts.sab_unreachable else '' }}">{{ snap.arr_event_counts.sab_unreachable }}</b></div>
+    </div>
+    <p class="note">Pre-SAB failures are not counted as SAB download failures because SAB never received the release. Explicit failed-download redownload signals are retained as Automatic retry triggers. Import failures happen after SAB and are kept as a separate Arr stage; Arr history cleanup after an import or failed-download retry is tracked separately from cancellation.</p>
+  </section>
+
+  <section class="panel evidence-health-panel">
+    <div class="panel-head">
+      <div><h2>Evidence health</h2><small class="panel-subtitle">Can nzbview support the conclusions shown elsewhere?</small></div>
+      <span class="chip">selected {{ snap.hours }}h window</span>
+    </div>
+    <div class="evidence-health-grid">
+      {% for item in snap.evidence_health %}
+      <article class="evidence-health-card evidence-{{ item.tone }}">
+        <span>{{ item.label }}</span>
+        <strong>{{ item.value }}</strong>
+        <small>{{ item.detail }}</small>
+      </article>
+      {% endfor %}
+    </div>
+    <p class="note">This section intentionally summarizes retained evidence quality rather than listing every Prowlarr error. Torrent/public-indexer diagnostics remain stored in SQLite but are not promoted into the normal Usenet-focused dashboard.</p>
+  </section>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Last collector run</h2><span class="chip">{{ snap.last_collection.collected_at or "unknown" }}</span></div>
+    {% if snap.last_collection.collector_version or snap.last_collection.collector_script %}
+    <div class="collector-identity-strip">
+      <div><span>Collector version</span><b>{{ snap.last_collection.collector_version or "unknown" }}</b></div>
+      <div><span>Collector script</span><b>{{ snap.last_collection.collector_script or "unknown" }}</b></div>
+      {% if snap.last_collection.collector_db %}<div><span>Database</span><b>{{ snap.last_collection.collector_db }}</b></div>{% endif %}
+    </div>
+    {% endif %}
+    <div class="metric-grid">
+      <div><span>SAB live completed</span><b class="good">{{ snap.last_collection.sab_live_completed }}</b></div>
+      <div><span>SAB live failed</span><b class="bad">{{ snap.last_collection.sab_live_failed }}</b></div>
+      <div><span>SAB live cancelled</span><b class="warn">{{ snap.last_collection.sab_live_cancelled }}</b></div>
+      <div><span>SAB backfilled completed</span><b>{{ snap.last_collection.sab_backfill_completed }}</b></div>
+      <div><span>SAB backfilled failed</span><b>{{ snap.last_collection.sab_backfill_failed }}</b></div>
+      <div><span>SAB backfilled cancelled</span><b>{{ snap.last_collection.sab_backfill_cancelled }}</b></div>
+      <div><span>Queue-remove candidates</span><b>{{ snap.last_collection.cancel_remove_candidates }}</b></div>
+      <div><span>Purge(true) candidates</span><b>{{ snap.last_collection.cancel_purge_true_candidates }}</b></div>
+      <div><span>DirectUnpack abort confirms</span><b>{{ snap.last_collection.cancel_direct_unpack_abort }}</b></div>
+      <div><span>Accepted cancellations</span><b class="{{ 'warn' if snap.last_collection.cancel_accepted else '' }}">{{ snap.last_collection.cancel_accepted }}</b></div>
+      <div><span>Inserted / reclassified</span><b>{{ snap.last_collection.cancel_inserted }} / {{ snap.last_collection.cancel_reclassified }}</b></div>
+      <div><span>Already recorded</span><b>{{ snap.last_collection.cancel_already_recorded }}</b></div>
+      <div><span>Rejected: Ending job</span><b>{{ snap.last_collection.cancel_rejected_ending }}</b></div>
+      <div><span>Rejected: post-processing</span><b>{{ snap.last_collection.cancel_rejected_postproc }}</b></div>
+      <div><span>Rejected: no purge(true)</span><b>{{ snap.last_collection.cancel_rejected_no_purge }}</b></div>
+      <div><span>Prowlarr live searches</span><b>{{ snap.last_collection.prowlarr_live_searches }}</b></div>
+      <div><span>Prowlarr backfill searches</span><b>{{ snap.last_collection.prowlarr_backfill_searches }}</b></div>
+      <div><span>Sonarr live / backfill</span><b>{{ snap.last_collection.sonarr_live_events }} / {{ snap.last_collection.sonarr_backfill_events }}</b></div>
+      <div><span>Radarr live / backfill</span><b>{{ snap.last_collection.radarr_live_events }} / {{ snap.last_collection.radarr_backfill_events }}</b></div>
+      <div><span>Unavailable article events</span><b>{{ snap.last_collection.unavailable }}</b></div>
+      <div><span>Repair events</span><b>{{ snap.last_collection.repair_events }}</b></div>
+      <div><span>Invalid releases</span><b>{{ snap.last_collection.prowlarr_invalid }}</b></div>
+      <div><span>Lifecycle live / backfill</span><b>{{ snap.last_collection.sab_live_lifecycle_events }} / {{ snap.last_collection.sab_backfill_lifecycle_events }}</b></div>
+    </div>
+    <p class="note">Live counts are events newer than the previous collector watermark. Backfill counts are older retained events discovered during this run, such as a first import of rotated logs. v7.11.0 records its actual script path/version here so an outdated collector configuration is immediately visible.</p>
+  </section>
+</section>

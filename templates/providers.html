@@ -1,0 +1,215 @@
+{% from "_app_icon.html" import app_icon %}
+<section class="page" data-page-title="Providers" data-hours="{{ snap.hours }}" data-scope-mode="{{ sample_scope.mode }}" data-sample-type="downloads" data-sample-n="{{ sample_scope.n }}">
+  {% set subtitle = "Usenet article availability by time window, plus provider contribution across fixed recent download samples." %}
+  {% set scope_target = "#providers-workspace" %}{% set scope_select = "#providers-workspace" %}
+  {% set scope_population_label = "Downloads with provider data" %}
+  {% include "_page_head.html" %}
+
+  <div id="providers-workspace" data-scope-state data-scope-mode="{{ sample_scope.mode }}" data-sample-type="downloads" data-sample-n="{{ sample_scope.n }}">
+  {% if sample_scope.mode == 'sample' %}
+    {% set pc = sample.providers %}
+    <div class="sample-scope-banner">
+      <div>
+        <span class="sample-scope-kicker">Recent sample</span>
+        <strong>Last {{ sample_scope.n }} downloads with provider data</strong>
+        <small>Newest terminal SAB History downloads where SAB retained a provider contribution split · no time limit</small>
+      </div>
+      <div class="sample-scope-meta">
+        {% if sample.selected < sample.requested %}<span class="chip warn-chip">{{ sample.selected }} available of {{ sample.requested }} requested</span>{% else %}<span class="chip good-chip">{{ sample.selected }} selected</span>{% endif %}
+        <span class="chip">{{ sample.total_available }} retained with provider data</span>
+        {% if sample.span_start and sample.span_end %}<span class="chip">spans {{ sample.span_start[0:16]|replace('T',' ') }} → {{ sample.span_end[0:16]|replace('T',' ') }}</span>{% endif %}
+      </div>
+    </div>
+
+    <div class="stat-grid stat-grid-4 sample-stat-grid">
+      <article class="stat-card"><span>Downloads analyzed</span><strong>{{ sample.selected }}</strong><small>Every selected download has retained provider contribution data</small></article>
+      <article class="stat-card"><span>Provider-data history</span><strong>{{ sample.total_available }}</strong><small>Total retained terminal downloads with a SAB provider split</small></article>
+      <article class="stat-card"><span>Data supplied</span><strong>{{ pc.bytes_human }}</strong><small>Approximate total across this fixed provider-evidenced sample</small></article>
+      <article class="stat-card"><span>Provider use</span><strong>{{ pc.shared_jobs }} shared</strong><small>{{ pc.exclusive_jobs }} used one provider only</small></article>
+    </div>
+
+    <div class="provider-sample-grid">
+      {% for p in pc.providers %}
+      <article class="panel provider-sample-card">
+        <div class="panel-head">
+          <div><h2>{{ p.provider_label }}</h2><small class="panel-subtitle">{{ p.provider }}</small></div>
+          <span class="chip">{{ p.jobs }} of {{ sample.selected }} downloads</span>
+        </div>
+        <div class="provider-sample-hero">
+          <div><span>Share of observed data</span><strong>{{ "%.1f"|format(p.share or 0) }}%</strong><small>{{ p.bytes_human }} supplied</small></div>
+          <div class="sample-bar-track provider-sample-progress"><i style="width: {{ p.share or 0 }}%"></i></div>
+        </div>
+        <div class="metric-grid provider-sample-metrics">
+          <div><span>Contributed to</span><b>{{ p.jobs }} / {{ sample.selected }}</b><small>sampled downloads</small></div>
+          <div><span>Only provider</span><b>{{ p.exclusive_jobs }}</b><small>downloads</small></div>
+          <div><span>Completed downloads</span><b>{{ p.completed_jobs }}</b></div>
+          <div><span>Failed downloads</span><b class="{{ 'bad' if p.failed_jobs else '' }}">{{ p.failed_jobs }}</b></div>
+        </div>
+      </article>
+      {% else %}
+      <section class="panel"><div class="empty-state">No retained SAB History provider contribution data is available.</div></section>
+      {% endfor %}
+    </div>
+
+    <section class="panel provider-overview-panel">
+      <div class="panel-head">
+        <div><h2 class="app-heading">{{ app_icon("SABnzbd", "sm") }}<span>Combined provider contribution</span></h2><small class="panel-subtitle">A single download can use more than one provider; shares describe bytes supplied, not a win/loss assignment.</small></div>
+        <span class="chip">{{ sample.selected }} provider-evidenced downloads</span>
+      </div>
+      {% if pc.bytes %}
+      <div class="provider-share-list sample-provider-list">
+        {% for p in pc.providers %}
+        <div class="provider-share-row">
+          <div class="provider-share-label"><b>{{ p.provider_label }}</b><small>{{ p.provider }}</small></div>
+          <div class="provider-share-track"><i style="width: {{ p.share or 0 }}%"></i></div>
+          <div class="provider-share-value"><b>{{ "%.1f"|format(p.share or 0) }}%</b><small>{{ p.bytes_human }}</small></div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <p class="note">Recent Sample on Providers is selected directly from downloads where SAB retained a per-download provider split. It does not use SAB's cumulative article-availability counters. Article availability and bandwidth-counter deltas remain in <b>Time window</b> mode.</p>
+    </section>
+  {% else %}
+  <section class="panel provider-overview-panel">
+    <div class="panel-head">
+      <div>
+        <h2 class="app-heading">{{ app_icon("SABnzbd", "sm") }}<span>Combined provider activity · {{ snap.hours }}h</span></h2>
+        <small class="panel-subtitle">How much each server actually contributed to jobs whose SAB History retained a Servers breakdown.</small>
+      </div>
+      <span class="chip">approximate per-job contribution</span>
+    </div>
+    <div class="provider-overview-grid">
+      <div class="provider-overview-kpi"><span>Observed provider traffic</span><strong>{{ snap.provider_contribution.bytes_human }}</strong><small>sum of retained per-job server values</small></div>
+      <div class="provider-overview-kpi"><span>Jobs with server breakdown</span><strong>{{ snap.provider_contribution.jobs }}</strong><small>{{ snap.provider_contribution.completed_jobs }} completed</small></div>
+      <div class="provider-overview-kpi"><span>Downloads using multiple providers</span><strong>{{ snap.provider_contribution.shared_jobs }}</strong><small>two or more providers supplied data</small></div>
+      <div class="provider-overview-kpi"><span>Downloads using one provider</span><strong>{{ snap.provider_contribution.exclusive_jobs }}</strong><small>only one provider supplied data</small></div>
+    </div>
+
+    {% if snap.provider_contribution.bytes %}
+    <div class="provider-share-list">
+      {% for p in snap.providers %}
+      {% if p.contribution_bytes %}
+      <div class="provider-share-row">
+        <div class="provider-share-label">
+          <b>{{ p.provider_label }}</b><small>{{ p.provider }}</small>
+        </div>
+        <div class="provider-share-track"><i style="width: {{ p.contribution_share or 0 }}%"></i></div>
+        <div class="provider-share-value"><b>{{ "%.1f"|format(p.contribution_share or 0) }}%</b><small>{{ p.contribution_bytes_human }}</small></div>
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state compact-empty">No retained SAB History server breakdowns fall inside this window yet. Availability counters below are still available.</div>
+    {% endif %}
+    <p class="note">Contribution comes from SAB History's per-job <b>Servers</b> stage and uses SAB's rounded human-readable values, so treat the byte totals and shares as observed approximations. A shared job is not assigned to a single provider.</p>
+  </section>
+
+  <section class="panel provider-traffic-trend-panel">
+    <div class="panel-head">
+      <div><h2>Provider traffic share over time</h2><small class="panel-subtitle">Approximate per-job contribution from SAB History's Servers stage.</small></div>
+      <span class="chip">{{ snap.quality_bucket_hours }}h buckets</span>
+    </div>
+    <div class="multi-series-chart provider-share-chart" data-chart-style="area" data-chart-title="Provider traffic share" data-sample-label="jobs" data-series='{{ snap.provider_contribution_series | tojson }}' data-value-key="share" data-series-key="provider_label" data-value-format="percent" data-scale="percent"></div>
+    <p class="note">Shares are based on the rounded per-server byte values retained by SAB History, so they are directional rather than byte-perfect. Providers are discovered from the stored server breakdowns; no provider names are fixed in the UI.</p>
+  </section>
+
+  {% for p in snap.providers %}
+  <section class="panel provider-identity-panel">
+    <div class="panel-head provider-title-head">
+      <div>
+        <h2>{{ p.provider_label }}</h2>
+        <small class="panel-subtitle">{{ p.provider }}</small>
+      </div>
+      <div class="provider-role-chips">
+        {% if p.enabled is not none %}<span class="chip {{ 'provider-enabled-chip' if p.enabled else 'provider-disabled-chip' }}">{{ 'enabled' if p.enabled else 'disabled' }}</span>{% endif %}
+        {% if p.priority is not none %}<span class="chip">priority {{ p.priority }}</span>{% endif %}
+        {% if p.connections is not none %}<span class="chip">{{ p.connections }} connections</span>{% endif %}
+      </div>
+    </div>
+
+    <div class="layout-2 provider-panels provider-detail-layout">
+      <div class="provider-subpanel">
+        <div class="provider-subhead"><b>Cumulative SAB counters</b><span>current server_stats</span></div>
+        <div class="provider-hero availability-hero">
+          <strong>{{ "%.3f"|format(p.availability or 0) }}%</strong>
+          <span>article availability</span>
+          <small>{{ "%.3f"|format(p.unavailable_rate or 0) }}% unavailable / secondary</small>
+        </div>
+        <div class="metric-grid provider-metric-grid">
+          <div><span>Articles requested</span><b>{{ "{:,}".format(p.tried) }}</b></div>
+          <div><span>Available counter</span><b>{{ "{:,}".format(p.available_counter) }}</b></div>
+          <div><span>Unavailable counter</span><b>{{ "{:,}".format(p.unavailable_counter) }}</b></div>
+          <div><span>Total data</span><b>{{ p.total }}</b></div>
+          <div><span>Today</span><b>{{ p.today }}</b></div>
+          <div><span>This week</span><b>{{ p.week }}</b></div>
+        </div>
+      </div>
+
+      <div class="provider-subpanel window-panel">
+        <div class="provider-subhead"><b>Selected window · {{ snap.hours }}h</b><span>stored snapshot delta</span></div>
+        {% if p.window_tried %}
+        <div class="provider-hero availability-hero">
+          <strong>{{ "%.3f"|format(p.window_availability or 0) }}%</strong>
+          <span>{% if p.window_partial %}observed-span article availability{% else %}window article availability{% endif %}</span>
+          <small>{{ "%.3f"|format(p.window_unavailable_rate or 0) }}% unavailable / secondary</small>
+        </div>
+        {% else %}
+        <div class="provider-hero availability-hero">
+          <strong class="muted-number">—</strong>
+          <span>no observed article-counter growth</span>
+          <small>waiting for a later provider snapshot</small>
+        </div>
+        {% endif %}
+        <div class="metric-grid provider-metric-grid">
+          <div><span>Requested articles</span><b>{{ "{:,}".format(p.window_tried) }}</b></div>
+          <div><span>Available</span><b>{{ "{:,}".format(p.window_available) }}</b></div>
+          <div><span>Unavailable</span><b>{{ "{:,}".format(p.window_unavailable) }}</b></div>
+          <div><span>API data delta</span><b>{{ p.window_bytes_human }}</b></div>
+          <div><span>Observed snapshot span</span><b>{{ p.window_coverage_hours if p.window_coverage_hours is not none else "—" }}h</b></div>
+          <div><span>Baseline snapshot</span><b class="small-value">{{ (p.window_baseline_at or "—")[0:16]|replace('T',' ') }}</b></div>
+        </div>
+        {% if p.window_partial %}
+        <p class="note warn-note"><b>Partial provider window.</b> The availability figure uses only the {{ p.window_coverage_hours if p.window_coverage_hours is not none else "unknown" }}h of stored snapshots currently available, not the full requested {{ snap.hours }}h.</p>
+        {% else %}
+        <p class="note">The requested window and observed snapshot span can differ slightly because the delta uses the nearest stored baseline at or before the cutoff.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="provider-contribution-panel">
+      <div class="provider-contribution-head">
+        <div><span>Observed contribution · {{ snap.hours }}h</span><strong>{{ p.contribution_bytes_human }}</strong></div>
+        <div class="provider-contribution-share"><strong>{{ "%.1f"|format(p.contribution_share or 0) }}%</strong><span>of retained provider traffic</span></div>
+      </div>
+      <div class="provider-share-track large"><i style="width: {{ p.contribution_share or 0 }}%"></i></div>
+      <div class="provider-contribution-stats">
+        <span><b>{{ p.contribution_jobs }}</b> jobs contributed to</span>
+        <span><b>{{ p.contribution_completed_jobs }}</b> completed jobs</span>
+        <span><b>{{ p.exclusive_jobs }}</b> downloads using one provider</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel provider-trend-panel">
+    <div class="panel-head">
+      <h2>{{ snap.hours }}h article-availability trend · {{ p.provider_label }}</h2>
+      <span class="chip">{{ snap.provider_series | selectattr("provider","equalto",p.provider) | list | length }} points</span>
+    </div>
+    <div class="multi-series-chart provider-share-chart provider-availability-chart"
+         data-chart-style="area"
+         data-chart-title="{{ p.provider_label }} article availability"
+         data-series='{{ snap.provider_series | tojson }}'
+         data-series-key="provider"
+         data-value-key="ratio"
+         data-value-format="percent3"
+         data-scale="zoom-percent"
+         data-filter-key="provider"
+         data-filter-value="{{ p.provider }}"
+         data-series-label="{{ p.provider_label }}"></div>
+    <p class="note">Article availability describes requested Usenet articles observed by SAB on this server. It is not a release-completion percentage. With equal-priority providers, a single job can use both servers.</p>
+  </section>
+  {% endfor %}
+  {% endif %}
+  </div>
+</section>

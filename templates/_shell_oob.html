@@ -1,0 +1,8 @@
+<span id="top-db-count" class="top-status" hx-swap-oob="outerHTML">
+  <span class="pulse"></span>DB {{ snap.counts.sab_attempts }} attempts
+</span>
+<span id="nav-downloads-badge" class="nav-badge" hx-swap-oob="outerHTML">{{ snap.sab.attempts }}</span>
+<span id="nav-failures-badge" class="nav-badge" hx-swap-oob="outerHTML">{{ snap.sab.failed_only }}</span>
+<div id="collector-status" hx-swap-oob="innerHTML">
+  {% include "_collector_status.html" %}
+</div>

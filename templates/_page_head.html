@@ -1,0 +1,78 @@
+<div class="page-head">
+  <div>
+    <h1>{{ page_title }}</h1>
+    <p>{{ subtitle }}</p>
+  </div>
+  {% if sample_scope is defined and sample_scope.enabled %}
+  {% set _scope_target = scope_target|default('#page-content') %}
+  {% set _scope_select = scope_select|default('') %}
+  <form class="scope-controls scope-form" method="get" action="{{ request.url.path }}"
+        hx-get="{{ request.url.path }}" hx-trigger="change" hx-target="{{ _scope_target }}"
+        {% if _scope_select %}hx-select="{{ _scope_select }}" hx-swap="outerHTML"{% endif %}
+        hx-push-url="true">
+    <div class="scope-picker">
+      <label>Scope</label>
+      <select name="scope" data-scope-mode-select>
+        <option value="time" {% if sample_scope.mode == 'time' %}selected{% endif %}>Time window</option>
+        <option value="sample" {% if sample_scope.mode == 'sample' %}selected{% endif %}>Recent sample</option>
+      </select>
+    </div>
+
+    {# Keep both control sets in the DOM.  Only visibility changes client-side, so
+       switching scope no longer requires replacing the whole page header. #}
+    <div class="window-picker scope-mode-fields" data-scope-time {% if sample_scope.mode != 'time' %}hidden{% endif %}>
+      <label>Activity window</label>
+      <select name="hours" data-activity-window>
+        <option value="24" {% if snap.hours == 24 %}selected{% endif %}>1 day</option>
+        <option value="72" {% if snap.hours == 72 %}selected{% endif %}>3 days</option>
+        <option value="168" {% if snap.hours == 168 %}selected{% endif %}>7 days</option>
+        <option value="336" {% if snap.hours == 336 %}selected{% endif %}>14 days</option>
+        <option value="720" {% if snap.hours == 720 %}selected{% endif %}>30 days</option>
+        <option value="1440" {% if snap.hours == 1440 %}selected{% endif %}>60 days</option>
+      </select>
+    </div>
+
+    <div class="scope-sample-fields" data-scope-sample {% if sample_scope.mode != 'sample' %}hidden{% endif %}>
+      {% if sample_scope.types|length > 1 %}
+      <div class="scope-picker">
+        <label>Sample of</label>
+        <select name="sample_type">
+          {% for value in sample_scope.types %}
+          <option value="{{ value }}" {% if sample_scope.type == value %}selected{% endif %}>{{ value|title }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% else %}
+      <input type="hidden" name="sample_type" value="{{ sample_scope.type }}">
+      <div class="scope-picker scope-fixed-population">
+        <label>Sample of</label>
+        <span>{{ scope_population_label|default(sample_scope.type|title) }}</span>
+      </div>
+      {% endif %}
+      <div class="scope-picker">
+        <label>Sample size</label>
+        <select name="sample_n">
+          {% for value in sample_scope.sizes %}
+          <option value="{{ value }}" {% if sample_scope.n == value %}selected{% endif %}>Last {{ value }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+  </form>
+  {% else %}
+  <div class="window-picker">
+    <label>Activity window</label>
+    <select data-activity-window>
+      <option value="24" {% if snap.hours == 24 %}selected{% endif %}>1 day</option>
+      <option value="72" {% if snap.hours == 72 %}selected{% endif %}>3 days</option>
+      <option value="168" {% if snap.hours == 168 %}selected{% endif %}>7 days</option>
+      <option value="336" {% if snap.hours == 336 %}selected{% endif %}>14 days</option>
+      <option value="720" {% if snap.hours == 720 %}selected{% endif %}>30 days</option>
+      <option value="1440" {% if snap.hours == 1440 %}selected{% endif %}>60 days</option>
+    </select>
+  </div>
+  {% endif %}
+</div>
+{% if is_htmx %}
+  {% include "_shell_oob.html" %}
+{% endif %}

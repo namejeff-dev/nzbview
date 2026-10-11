@@ -1,0 +1,106 @@
+<section class="page" data-page-title="Failures" data-hours="{{ snap.hours }}">
+  {% set subtitle = "Unresolved failed releases only, with unique-release repair severity and failed-attempt detail." %}
+  {% include "_page_head.html" %}
+
+  <div class="severity-grid">
+    <article class="severity-card">
+      <span>No repair blocks observed</span>
+      <strong>{{ snap.failure_severity.zero }}</strong>
+      <small>unique failed releases</small>
+    </article>
+    <article class="severity-card">
+      <span>1–9 repair blocks</span>
+      <strong class="warn">{{ snap.failure_severity.light }}</strong>
+      <small>unique failed releases</small>
+    </article>
+    <article class="severity-card">
+      <span>10+ repair blocks</span>
+      <strong class="bad">{{ snap.failure_severity.heavy }}</strong>
+      <small>unique failed releases</small>
+    </article>
+    <article class="severity-card">
+      <span>Total unresolved</span>
+      <strong>{{ snap.failure_severity.total }}</strong>
+      <small>unique failed releases</small>
+    </article>
+  </div>
+
+  {% if snap.failure_causes %}
+  <section class="panel compact-panel">
+    <div class="panel-head"><h2>Causal failure stages</h2><span class="chip">unique failed releases</span></div>
+    <div class="cause-grid">
+      {% for c in snap.failure_causes %}
+      <a class="cause-card" href="/failures?hours={{ snap.hours }}&cause={{ c.stage|urlencode }}" hx-get="/failures?hours={{ snap.hours }}&cause={{ c.stage|urlencode }}" hx-target="#failures-workspace" hx-select="#failures-workspace" hx-swap="outerHTML" hx-push-url="true">
+        <span>{{ c.stage }}</span><strong>{{ c.count }}</strong>
+      </a>
+      {% endfor %}
+    </div>
+    <p class="note">Cause is taken from the final failed attempt's reconstructed SAB lifecycle. <b>Cause unavailable</b> means SAB recorded the failure but no more specific causal message survived in the retained rotating logs or History API.</p>
+  </section>
+  {% endif %}
+
+  <div id="failures-workspace">
+  {% set filter_target = "#failures-workspace" %}{% set filter_select = "#failures-workspace" %}
+  {% set show_status = false %}{% set show_outcome = false %}
+  {% set show_indexer = true %}{% set show_match = true %}
+  {% set show_repair = true %}{% set show_cause = true %}{% set show_kind = false %}
+  {% include "_filter_form.html" %}
+
+  {% from "_sort_macros.html" import sortable %}
+  {% set filter_query = "hours=" ~ snap.hours ~ "&q=" ~ filters.q|urlencode ~ filters.indexer_query ~ "&match=" ~ filters.match ~ "&repair=" ~ filters.repair ~ "&cause=" ~ filters.cause|urlencode %}
+  {% set base_query = filter_query ~ "&sort=" ~ filters.sort ~ "&dir=" ~ filters.dir %}
+  <section class="panel">
+    <div class="panel-head"><h2>Failed attempts from failed-only releases</h2><span class="chip">{{ pager.total }} attempts matched</span></div>
+    <div class="table-wrap tall">
+      <table>
+        <thead><tr>
+          {{ sortable("Time","time",filters.sort,filters.dir,"/failures",filter_query,false,"#failures-workspace","#failures-workspace") }}
+          {{ sortable("Indexer","indexer",filters.sort,filters.dir,"/failures",filter_query,false,"#failures-workspace","#failures-workspace") }}
+          {{ sortable("Match","match",filters.sort,filters.dir,"/failures",filter_query,false,"#failures-workspace","#failures-workspace") }}
+          {{ sortable("Cause","cause",filters.sort,filters.dir,"/failures",filter_query,false,"#failures-workspace","#failures-workspace") }}
+          {{ sortable("Release","release",filters.sort,filters.dir,"/failures",filter_query,false,"#failures-workspace","#failures-workspace") }}
+          {{ sortable("Repair","repair",filters.sort,filters.dir,"/failures",filter_query,true,"#failures-workspace","#failures-workspace") }}
+        </tr></thead>
+        <tbody>
+        {% for x in rows %}
+        <tr>
+          <td class="nowrap">{{ x.time[0:19]|replace('T',' ') }}</td>
+          <td>{{ x.indexer }}</td>
+          <td><span class="tag">{{ x.match_method }}</span></td>
+          <td><span class="tag {{ 'bad' if x.failure_stage else '' }}">{{ 'Cause unavailable' if (x.failure_stage or 'Unknown') == 'Unknown' else (x.failure_stage or 'Cause unavailable') }}</span></td>
+          <td class="release-cell"><button class="release-link" data-release-title="{{ x.title }}" data-release-time="{{ x.final_time or x.time }}" data-hours="{{ snap.hours }}">{{ x.title }}</button></td>
+          <td class="num {{ 'bad' if x.repair_blocks >= 10 else 'warn' if x.repair_blocks > 0 else '' }}">{{ x.repair_blocks }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6"><div class="empty-state">No unresolved failures match these filters.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% set pager_target = "#failures-workspace" %}{% set pager_select = "#failures-workspace" %}
+    {% include "_pager.html" %}
+  </section>
+
+  {% if snap.failure_severity_by_indexer %}
+  <section class="panel">
+    <div class="panel-head"><h2>Failure severity by indexer</h2><span class="chip">unique releases</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Indexer</th><th>Total</th><th>0 blocks</th><th>1–9</th><th>10+</th><th>Heavy share</th></tr></thead>
+        <tbody>
+        {% for x in snap.failure_severity_by_indexer %}
+        <tr>
+          <td><b>{{ x.indexer }}</b></td><td>{{ x.total }}</td><td>{{ x.zero }}</td>
+          <td class="warn">{{ x.light }}</td><td class="bad">{{ x.heavy }}</td>
+          <td class="{{ 'bad' if x.total and (x.heavy / x.total) >= 0.25 else 'warn' if x.heavy else '' }}">
+            {{ "%.2f"|format((x.heavy / x.total * 100) if x.total else 0) }}%
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+  </div>
+</section>

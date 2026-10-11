@@ -1,0 +1,24 @@
+{% if sample_scope is defined and sample_scope.mode == 'sample' and sample %}
+<div class="sample-scope-banner">
+  <div>
+    <span class="sample-scope-kicker">Recent sample</span>
+    <strong>Last {{ sample_scope.n }} {{ sample_scope.type }}</strong>
+    <small>
+      {% if sample_scope.type == 'downloads' %}Newest completed/failed SAB downloads by count · no time limit
+      {% elif sample_scope.type == 'grabs' %}Newest Prowlarr Usenet grabs by count · no time limit
+      {% else %}Newest logical Arr searches by count · no time limit{% endif %}
+    </small>
+  </div>
+  <div class="sample-scope-meta">
+    {% if sample.selected < sample.requested %}
+      <span class="chip warn-chip">{{ sample.selected }} usable of {{ sample.requested }} requested</span>
+    {% else %}
+      <span class="chip good-chip">{{ sample.selected }} selected</span>
+    {% endif %}
+    {% if sample.total_available is defined %}<span class="chip">{{ sample.total_available }} retained total</span>{% endif %}
+    {% if sample.span_start and sample.span_end %}
+      <span class="chip">spans {{ sample.span_start[0:16]|replace('T',' ') }} → {{ sample.span_end[0:16]|replace('T',' ') }}</span>
+    {% endif %}
+  </div>
+</div>
+{% endif %}

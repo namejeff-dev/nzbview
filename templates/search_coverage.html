@@ -1,0 +1,192 @@
+{% from "_app_icon.html" import app_icon %}
+<section class="page" data-page-title="Indexers" data-hours="{{ snap.hours }}" data-scope-mode="{{ sample_scope.mode }}" data-sample-type="searches" data-sample-n="{{ sample_scope.n }}">
+  <div id="indexers-suite" data-scope-state data-scope-mode="{{ sample_scope.mode }}" data-sample-type="searches" data-sample-n="{{ sample_scope.n }}">
+  {% set subtitle = "Indexer grab reliability and search availability, viewed by time window or fixed recent sample." %}
+  {% set scope_target = "#indexers-suite" %}{% set scope_select = "#indexers-suite" %}
+  {% include "_page_head.html" %}
+  <nav class="section-tabs" aria-label="Indexer views">
+    {% if sample_scope.mode == 'sample' %}
+      {% set indexer_scope_q = "hours=" ~ snap.hours ~ "&scope=sample&sample_type=grabs&sample_n=" ~ sample_scope.n %}
+      {% set raw_scope_q = "hours=" ~ snap.hours ~ "&scope=sample&sample_type=searches&sample_n=" ~ sample_scope.n %}
+    {% else %}
+      {% set indexer_scope_q = "hours=" ~ snap.hours %}
+      {% set raw_scope_q = indexer_scope_q %}
+    {% endif %}
+    <a class="section-tab" href="/indexers?{{ indexer_scope_q }}" hx-get="/indexers?{{ indexer_scope_q }}" hx-target="#indexers-suite" hx-select="#indexers-suite" hx-swap="outerHTML" hx-push-url="true">Indexer performance</a>
+    <a class="section-tab active" href="/raw-search-results?{{ raw_scope_q }}" hx-get="/raw-search-results?{{ raw_scope_q }}" hx-target="#indexers-suite" hx-select="#indexers-suite" hx-swap="outerHTML" hx-push-url="true">Raw search results</a>
+  </nav>
+
+  <div class="subview-heading">
+    <h2 class="app-heading">{{ app_icon("Prowlarr", "sm") }}<span>Raw Search Results</span></h2>
+    <p>What each Usenet/NZB indexer actually returned for observed Arr searches before Custom Format, rejection, download, repair, or import decisions.</p>
+  </div>
+
+  {% if sample_scope.mode == 'sample' %}{% include "_sample_scope_banner.html" %}{% endif %}
+
+  <div class="stat-grid stat-grid-4 coverage-summary-grid">
+    <article class="stat-card">
+      <span>{% if sample_scope.mode == 'sample' %}Searches selected{% else %}Search sessions{% endif %}</span>
+      <strong>{{ coverage.sessions|length }}</strong>
+      <small>Logical Arr searches with retained Usenet/NZB indexer evidence</small>
+    </article>
+    <article class="stat-card">
+      <span>Searches with known target</span>
+      <strong>{{ coverage.target_known_sessions }}</strong>
+      <small>Exact API snapshot or historical Arr decision reconstruction</small>
+    </article>
+    <article class="stat-card">
+      <span>No indexer had a match</span>
+      <strong class="warn">{{ coverage.global_target_misses|length }}</strong>
+      <small>No queried indexer returned the wanted quality</small>
+    </article>
+    <article class="stat-card">
+      <span>Important distinction</span>
+      <strong class="muted-number">Indexer ≠ provider</strong>
+      <small>A raw indexer miss does not prove the articles are absent from Usenet providers.</small>
+    </article>
+  </div>
+
+  <section class="panel coverage-indexer-panel">
+    <div class="panel-head">
+      <div>
+        <h2>Raw availability by indexer</h2>
+        <span class="panel-subtitle">Availability = target-hit searches ÷ target-known opportunities. No blended score and no download outcome is used.</span>
+      </div>
+      <span class="chip">{% if sample_scope.mode == 'sample' %}recent {{ sample.selected }} searches{% else %}selected {{ snap.hours }}h window{% endif %}</span>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Indexer</th><th>Availability</th><th>Queried searches</th><th>Known-target searches</th><th>Searches with match</th><th>Searches without match</th>
+            <th>Wanted-quality NZBs returned</th><th>All NZBs returned</th><th>2160p wanted NZBs</th><th>1080p wanted NZBs</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for row in coverage.indexers %}
+          <tr>
+            <td><b>{{ row.indexer }}</b></td>
+            <td class="{% if row.availability_score is not none %}{{ 'good' if row.availability_score >= 80 else 'warn' if row.availability_score >= 60 else 'bad' }}{% endif %}">
+              {% if row.availability_score is not none %}{{ "%.2f"|format(row.availability_score) }}%{% else %}—{% endif %}
+            </td>
+            <td>{{ row.searches }}</td>
+            <td>{{ row.target_opportunities }}</td>
+            <td class="{{ 'good' if row.target_hits else '' }}">{{ row.target_hits }}</td>
+            <td class="{{ 'warn' if row.target_misses else '' }}">{{ row.target_misses }}</td>
+            <td class="{{ 'good' if row.matching_results else '' }}">{{ row.matching_results }}</td>
+            <td>{{ row.raw_candidates }}</td>
+            <td>{{ row.target_tiers.get('2160p', {}).get('results', 0) }}</td>
+            <td>{{ row.target_tiers.get('1080p', {}).get('results', 0) }}</td>
+          </tr>
+        {% else %}
+          <tr><td colspan="10" class="empty-cell">No retained raw search evidence yet. Run the updated collector to import Arr debug candidates.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <p class="note"><b>Search counts and NZB counts are different things.</b> Availability is a per-search measure: one search is a hit when at least one wanted-quality NZB was returned. “Wanted-quality NZBs returned” and “All NZBs returned” count individual release candidates, so one search can contribute many NZBs. In Recent sample mode the selected N logical searches are shared globally; an indexer can show fewer queried searches when Arr/Prowlarr did not use it for every selected search.</p>
+  </section>
+
+  <div id="search-results-workspace">
+  <form class="smart-filter" method="get" action="/raw-search-results" hx-get="/raw-search-results" hx-target="#search-results-workspace" hx-select="#search-results-workspace" hx-swap="outerHTML" hx-push-url="true">
+    <input type="hidden" name="hours" value="{{ snap.hours }}">
+    {% if sample_scope.mode == 'sample' %}
+    <input type="hidden" name="scope" value="sample"><input type="hidden" name="sample_type" value="searches"><input type="hidden" name="sample_n" value="{{ sample_scope.n }}">
+    {% endif %}
+    <div class="searchbox"><span>⌕</span><input type="search" name="q" value="{{ filters.q }}" placeholder="Search media or indexer…"></div>
+    <select name="gap">
+      <option value="all" {% if filters.gap == 'all' %}selected{% endif %}>All searches</option>
+      <option value="target_miss" {% if filters.gap == 'target_miss' %}selected{% endif %}>Global target miss</option>
+      <option value="partial" {% if filters.gap == 'partial' %}selected{% endif %}>Partial target coverage</option>
+      <option value="target_hit" {% if filters.gap == 'target_hit' %}selected{% endif %}>Target returned</option>
+      <option value="unresolved" {% if filters.gap == 'unresolved' %}selected{% endif %}>Target unresolved</option>
+      <option value="2160" {% if filters.gap == '2160' %}selected{% endif %}>Wanted 2160p</option>
+      <option value="1080" {% if filters.gap == '1080' %}selected{% endif %}>Wanted 1080p</option>
+    </select>
+    <button class="ghost-btn" type="submit">Apply</button>
+    <a class="ghost-btn" href="/raw-search-results?{{ 'hours=' ~ snap.hours ~ '&scope=sample&sample_type=searches&sample_n=' ~ sample_scope.n if sample_scope.mode == 'sample' else 'hours=' ~ snap.hours }}" hx-get="/raw-search-results?{{ 'hours=' ~ snap.hours ~ '&scope=sample&sample_type=searches&sample_n=' ~ sample_scope.n if sample_scope.mode == 'sample' else 'hours=' ~ snap.hours }}" hx-target="#search-results-workspace" hx-select="#search-results-workspace" hx-swap="outerHTML" hx-push-url="true">Reset</a>
+  </form>
+
+  <section class="panel">
+    <div class="panel-head"><h2>Observed searches</h2><span class="chip">{{ pager.total }} matched</span></div>
+    <div class="table-wrap coverage-table-wrap">
+      <table class="coverage-table">
+        <thead>
+          <tr><th>Time</th><th>Search</th><th>Scope</th><th>Trigger</th><th>Wanted quality</th><th>Indexer raw results</th><th>Matching target</th><th>Grab outcome</th><th>Classification</th></tr>
+        </thead>
+        <tbody>
+        {% for row in rows %}
+          <tr>
+            <td>{{ row.time }}</td>
+            <td><b>{{ row.media }}</b><small>{{ row.app }}</small></td>
+            <td><span class="chip">{{ row.scope }}</span></td>
+            <td><span class="chip">{{ row.origin|replace('_',' ')|title }}</span></td>
+            <td>
+              {% if row.target_known %}
+                <b class="good">{{ row.target_label }}</b>
+                <small>{{ row.target_qualities|join(', ') }}</small>
+                <small>{{ row.target_source|replace('_',' ') }} · {{ row.target_confidence }} confidence</small>
+              {% else %}
+                <span class="muted">unresolved</span>
+                {% if row.rejected_profile_tiers %}
+                  <small>Negative profile evidence: observed {{ row.rejected_profile_tiers|join(', ') }} candidates were explicitly not wanted in profile.</small>
+                  <small>The exact positive target cannot be proven from retained evidence, so this search is not scored.</small>
+                {% else %}
+                  <small>No retained API snapshot or strong historical Arr profile evidence; raw candidates are still retained.</small>
+                {% endif %}
+              {% endif %}
+            </td>
+            <td>
+              {% for idx in row.indexers %}
+                <div class="coverage-result-line">
+                  <span>{{ idx.indexer }}</span>
+                  <b class="{{ 'good' if idx.raw_count else 'warn' }}">{{ idx.raw_count }}</b>
+                  <small>unique raw candidates{% if idx.prowlarr_report_max is not none %} · Prowlarr max {{ idx.prowlarr_report_max }}{% endif %}</small>
+                </div>
+              {% endfor %}
+            </td>
+            <td>
+              {% if row.target_known %}
+                {% for idx in row.indexers %}
+                  <div class="coverage-result-line">
+                    <span>{{ idx.indexer }}</span>
+                    <b class="{{ 'good' if idx.target_count else 'warn' }}">{{ idx.target_count }}</b>
+                    <small>{% if idx.matching_quality_counts %}{% for qn, count in idx.matching_quality_counts.items() %}{{ qn }} ×{{ count }}{% if not loop.last %}, {% endif %}{% endfor %}{% else %}wanted-quality matches{% endif %}</small>
+                  </div>
+                {% endfor %}
+              {% else %}
+                <span class="muted">not scored</span>
+              {% endif %}
+            </td>
+            <td>
+              <span class="{{ 'good' if row.grab_outcome_kind == 'grabbed' else 'muted' }}">{{ row.grab_outcome }}</span>
+              <small>Downstream only; excluded from raw availability score.</small>
+            </td>
+            <td>
+              {% if row.classification == 'global_target_miss' %}
+                <span class="chip sample-chip">global target miss</span>
+                <small>No queried indexer returned {{ row.target_label }}.</small>
+              {% elif row.classification == 'partial_target_coverage' %}
+                <span class="chip warn-chip">partial target coverage</span>
+                <small>{{ row.target_indexers|join(', ') }} returned the wanted quality; one or more peers did not.</small>
+              {% elif row.classification == 'target_covered' %}
+                <span class="chip good-chip">target covered</span>
+              {% else %}
+                <span class="chip">target unresolved</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="9" class="empty-cell">No searches match these filters.</td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% set pager_target = "#search-results-workspace" %}{% set pager_select = "#search-results-workspace" %}
+    {% include "_pager.html" %}
+  </section>
+
+  <p class="note coverage-note">Raw availability includes Usenet/NZB indexers only (Prowlarr protocol = Usenet/Newznab). Torrent indexers are deliberately excluded. Raw availability is measured before Arr's Custom Format score, size, language, release-group, retention, or other acceptance/rejection rules. A correct-media candidate still counts when Arr later rejects it; an explicit wrong-media parse is excluded. New searches use time-bounded Sonarr/Radarr API profile snapshots. Historical searches can also be reconstructed from Arr's retained per-release quality-profile decisions: qualities explicitly marked “not wanted in profile” are excluded, while correct-media candidates that passed the quality check still count even if Arr later rejected them for another reason. Searches without either form of evidence remain unresolved.</p>
+  </div>
+  </div>
+</section>

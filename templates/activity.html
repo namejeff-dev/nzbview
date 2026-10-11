@@ -1,0 +1,153 @@
+{% from "_app_icon.html" import app_icon %}
+<section class="page" data-page-title="Activity" data-hours="{{ snap.hours }}">
+  {% set subtitle = "Search, selection, download, cancellation and import activity kept as separate populations." %}
+  {% include "_page_head.html" %}
+
+  <div class="activity-kpis">
+    <a class="activity-kpi" href="/activity?hours={{ snap.hours }}&tab=searches" hx-get="/activity?hours={{ snap.hours }}&tab=searches" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true">
+      <span>Searches</span><strong data-live-value data-live-key="activity-searches">{{ activity.summary.searches }}</strong>
+      <small>{{ activity.summary.automatic }} automatic · {{ activity.summary.automatic_retry }} retry · {{ activity.summary.interactive }} interactive · {{ activity.summary.unknown }} unclear</small>
+    </a>
+    <a class="activity-kpi" href="/activity?hours={{ snap.hours }}&tab=handoffs" hx-get="/activity?hours={{ snap.hours }}&tab=handoffs" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true">
+      <span>Sent to SAB</span><strong data-live-value data-live-key="activity-handoffs">{{ activity.summary.handoffs }}</strong>
+      <small>actual release hand-offs</small>
+    </a>
+    <a class="activity-kpi" href="/activity?hours={{ snap.hours }}&tab=cancelled" hx-get="/activity?hours={{ snap.hours }}&tab=cancelled" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true">
+      <span>Cancelled</span><strong data-live-value data-live-key="activity-cancelled" class="{{ 'warn' if activity.summary.cancelled else '' }}">{{ activity.summary.cancelled }}</strong>
+      <small>excluded from indexer quality</small>
+    </a>
+    <a class="activity-kpi" href="/activity?hours={{ snap.hours }}&tab=unresolved" hx-get="/activity?hours={{ snap.hours }}&tab=unresolved" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true">
+      <span>Unresolved</span><strong data-live-value data-live-key="activity-unresolved" class="{{ 'bad' if activity.summary.unresolved else '' }}">{{ activity.summary.unresolved }}</strong>
+      <small>hand-off with no terminal SAB result</small>
+    </a>
+    <a class="activity-kpi" href="/activity?hours={{ snap.hours }}&tab=imports" hx-get="/activity?hours={{ snap.hours }}&tab=imports" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true">
+      <span>Imports</span><strong data-live-value data-live-key="activity-imports">{{ activity.summary.imports }}</strong>
+      <small>explicit Arr import outcomes</small>
+    </a>
+    <a class="activity-kpi" href="/activity?hours={{ snap.hours }}&tab=history" hx-get="/activity?hours={{ snap.hours }}&tab=history" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true">
+      <span>History actions</span><strong data-live-value data-live-key="activity-history">{{ activity.summary.history_actions }}</strong>
+      <small>SAB archive / removal actions</small>
+    </a>
+  </div>
+
+  {% if activity.summary.pre_sab_failed or activity.summary.infrastructure %}
+  <div class="activity-alert-strip">
+    <a href="/activity?hours={{ snap.hours }}&tab=pre_sab" hx-get="/activity?hours={{ snap.hours }}&tab=pre_sab" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true"><span>Pre-SAB acquisition failures</span><b>{{ activity.summary.pre_sab_failed }}</b></a>
+    <a href="/activity?hours={{ snap.hours }}&tab=infrastructure" hx-get="/activity?hours={{ snap.hours }}&tab=infrastructure" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true"><span>Infrastructure / SAB availability</span><b>{{ activity.summary.infrastructure }}</b></a>
+  </div>
+  {% endif %}
+
+  <div id="activity-workspace">
+  <nav class="section-tabs" aria-label="Activity views">
+    {% for value,label,count in [
+      ('overview','Overview', activity.overview|length),
+      ('searches','Searches', activity.searches|length),
+      ('handoffs','Hand-offs', activity.handoffs|length),
+      ('downloads','Downloads', activity.downloads|length),
+      ('imports','Imports', activity.imports|length),
+      ('pre_sab','Pre-SAB', activity.pre_sab|length),
+      ('infrastructure','Infrastructure', activity.infrastructure|length),
+      ('history','History', activity.history|length),
+      ('unresolved','Unresolved', activity.unresolved|length),
+      ('cancelled','Cancelled', activity.cancelled|length)
+    ] %}
+    <a class="section-tab {% if filters.tab == value %}active{% endif %}"
+       href="/activity?hours={{ snap.hours }}&tab={{ value }}"
+       hx-get="/activity?hours={{ snap.hours }}&tab={{ value }}" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true">
+      {{ label }} <span>{{ count }}</span>
+    </a>
+    {% endfor %}
+  </nav>
+
+  <form class="smart-filter activity-filter" method="get" hx-get="/activity" hx-target="#activity-workspace" hx-select="#activity-workspace" hx-swap="outerHTML" hx-push-url="true">
+    <input type="hidden" name="hours" value="{{ snap.hours }}">
+    <input type="hidden" name="tab" value="{{ filters.tab }}">
+    <div class="searchbox"><span>⌕</span><input name="q" value="{{ filters.q }}" placeholder="Search media, release, indexer or detail…" autocomplete="off" data-search></div>
+
+    <details class="multi-filter">
+      <summary>Trigger{% if filters.origin %} · {{ filters.origin|length }} selected{% else %} · all{% endif %}</summary>
+      <div class="multi-filter-menu">
+        {% for value,label in [('automatic','Automatic'),('automatic_retry','Automatic retry'),('interactive','Interactive'),('unknown','Origin unclear'),('system','System / infrastructure')] %}
+        <label><input type="checkbox" name="origin" value="{{ value }}" {% if value in filters.origin %}checked{% endif %}> {{ label }}</label>
+        {% endfor %}
+        <button type="button" class="multi-filter-apply" data-apply-filter>Apply</button>
+      </div>
+    </details>
+
+    <details class="multi-filter">
+      <summary>Source{% if filters.app %} · {{ filters.app|length }} selected{% else %} · all{% endif %}</summary>
+      <div class="multi-filter-menu">
+        {% for value,label in [('Sonarr','Sonarr'),('Radarr','Radarr'),('SABnzbd','SABnzbd')] %}
+        <label class="app-filter-option"><input type="checkbox" name="app" value="{{ value }}" {% if value|lower in filters.app %}checked{% endif %}> {{ app_icon(value, 'xs') }}<span>{{ label }}</span></label>
+        {% endfor %}
+        <button type="button" class="multi-filter-apply" data-apply-filter>Apply</button>
+      </div>
+    </details>
+
+    <details class="multi-filter">
+      <summary>Indexer{% if filters.indexer %} · {{ filters.indexer|length }} selected{% else %} · all{% endif %}</summary>
+      <div class="multi-filter-menu">
+        {% for idx in snap.indexers %}
+        <label><input type="checkbox" name="indexer" value="{{ idx.name }}" {% if idx.name|lower in filters.indexer %}checked{% endif %}> {{ idx.name }}</label>
+        {% endfor %}
+        <button type="button" class="multi-filter-apply" data-apply-filter>Apply</button>
+      </div>
+    </details>
+
+    <details class="multi-filter">
+      <summary>Outcome{% if filters.outcome %} · {{ filters.outcome|length }} selected{% else %} · all{% endif %}</summary>
+      <div class="multi-filter-menu multi-filter-menu-wide">
+        {% for value,label in [('no selection','No selection'),('release selected','Release selected'),('completed','Completed'),('failed','Failed'),('cancelled','Cancelled'),('pending','Pending'),('unresolved','Unresolved'),('imported','Imported'),('archived','Archived'),('removed','Removed'),('unavailable','Unavailable')] %}
+        <label><input type="checkbox" name="outcome" value="{{ value }}" {% if value in filters.outcome %}checked{% endif %}> {{ label }}</label>
+        {% endfor %}
+        <button type="button" class="multi-filter-apply" data-apply-filter>Apply</button>
+      </div>
+    </details>
+    <button class="filter-reset" type="button" data-reset-filters>Reset</button>
+  </form>
+
+  {% set base_query = filters.base_query %}
+  <section class="panel activity-table-panel">
+    <div class="panel-head">
+      <div><h2>{{ filters.tab|replace('_',' ')|title }}</h2><small class="panel-subtitle">Browsing/search-only activity is visible here but never counted as a bad release.</small></div>
+      <span class="chip">{{ pager.total }} rows</span>
+    </div>
+    <div class="table-wrap tall activity-table-wrap">
+      <table class="activity-table">
+        <thead><tr><th>Time</th><th>Trigger</th><th>Source</th><th>Media / release</th><th>Indexer</th><th>Stage</th><th>Outcome</th></tr></thead>
+        <tbody>
+        {% for x in rows %}
+        <tr data-motion-row class="{% if x.kind == 'history' and x.outcome == 'removed' and x.removal_reason != 'arr_remove_completed_history' %}history-removed-row{% endif %}">
+          <td class="nowrap">{{ x.time[0:19]|replace('T',' ') }}</td>
+          <td>
+            {% if x.origin == 'automatic' %}<span class="origin-pill origin-automatic">automatic</span>
+            {% elif x.origin == 'automatic_retry' %}<span class="origin-pill origin-retry">automatic retry</span>
+            {% elif x.origin == 'interactive' %}<span class="origin-pill origin-interactive">interactive</span>
+            {% elif x.origin == 'unknown' %}<span class="origin-pill origin-unknown">origin unclear</span>
+            {% else %}<span class="tag">{{ x.origin }}</span>{% endif %}
+          </td>
+          <td><span class="app-pill app-{{ x.app|lower }}">{{ app_icon(x.app, 'xs') }}<span>{{ x.app }}</span></span></td>
+          <td class="activity-media-cell">
+            <strong>{{ x.media if x.media and x.media != '—' else x.release }}</strong>
+            {% if x.release and x.release != '—' and x.release != x.media %}<small>{{ x.release }}</small>{% endif %}
+            {% if x.detail %}<small>{{ x.detail }}</small>{% endif %}
+          </td>
+          <td>{{ x.indexer }}</td>
+          <td>{{ x.stage }}</td>
+          <td><span class="status activity-outcome outcome-{{ x.outcome|lower|replace(' ','-')|replace('/','-') }}">{{ x.outcome }}</span></td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7"><div class="empty-state">No activity matches this view.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% set pager_target = "#activity-workspace" %}{% set pager_select = "#activity-workspace" %}
+    {% include "_pager.html" %}
+  </section>
+
+  <p class="note activity-method-note">
+    Trigger labels are evidence-based. Automatic retry requires retained Arr failed-download redownload evidence; Interactive is high-confidence when a result session is followed by an observed release hand-off without an automatic completion, and medium-confidence for browse-only sessions. Otherwise origin stays unclear. Routine RSS sync summary rows are intentionally hidden from this feed. Search-only rows, cancellations, SAB history cleanup and unresolved hand-offs remain reviewable activity but are excluded from indexer-quality failure denominators.
+  </p>
+  </div>
+</section>

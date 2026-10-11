@@ -1,0 +1,14 @@
+{% macro sortable(label, key, current_sort, current_dir, path, filter_query, num=false, target="#page-content", select="") -%}
+  {% set next_dir = 'asc' if current_sort == key and current_dir == 'desc' else 'desc' %}
+  {% set url = path ~ '?' ~ filter_query ~ '&sort=' ~ key ~ '&dir=' ~ next_dir ~ '&page=1' %}
+  <th{% if num %} class="num"{% endif %}>
+    <a class="sort-link {% if current_sort == key %}active{% endif %}"
+       href="{{ url }}"
+       hx-get="{{ url }}"
+       hx-target="{{ target }}"{% if select %} hx-select="{{ select }}" hx-swap="outerHTML"{% endif %}
+       hx-push-url="true">
+      {{ label }}
+      <span class="sort-arrow">{% if current_sort == key %}{{ '↑' if current_dir == 'asc' else '↓' }}{% else %}↕{% endif %}</span>
+    </a>
+  </th>
+{%- endmacro %}

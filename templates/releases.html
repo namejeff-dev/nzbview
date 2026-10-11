@@ -1,0 +1,55 @@
+<section class="page" data-page-title="Releases" data-hours="{{ snap.hours }}">
+  {% set subtitle = "Unique releases grouped across retries, with searchable final outcomes." %}
+  {% include "_page_head.html" %}
+
+  <div id="releases-workspace">
+  {% set filter_target = "#releases-workspace" %}{% set filter_select = "#releases-workspace" %}
+  {% set show_status = true %}{% set status_kind = 'release' %}{% set show_outcome = false %}{% set show_indexer = true %}{% set show_match = true %}{% set show_repair = false %}{% set show_kind = false %}
+  {% include "_filter_form.html" %}
+
+  {% from "_sort_macros.html" import sortable %}
+  {% set filter_query = "hours=" ~ snap.hours ~ "&q=" ~ filters.q|urlencode ~ "&status=" ~ filters.status ~ filters.indexer_query ~ "&match=" ~ filters.match %}
+  {% set base_query = filter_query ~ "&sort=" ~ filters.sort ~ "&dir=" ~ filters.dir %}
+  <section class="panel">
+    <div class="panel-head"><h2>Unique releases</h2><span class="chip">{{ pager.total }} matched</span></div>
+    <div class="table-wrap tall">
+      <table>
+        <thead><tr>
+          {{ sortable("Final time","time",filters.sort,filters.dir,"/releases",filter_query,false,"#releases-workspace","#releases-workspace") }}
+          {{ sortable("Outcome","outcome",filters.sort,filters.dir,"/releases",filter_query,false,"#releases-workspace","#releases-workspace") }}
+          {{ sortable("Indexer","indexer",filters.sort,filters.dir,"/releases",filter_query,false,"#releases-workspace","#releases-workspace") }}
+          {{ sortable("Match","match",filters.sort,filters.dir,"/releases",filter_query,false,"#releases-workspace","#releases-workspace") }}
+          {{ sortable("Retry chain","attempts",filters.sort,filters.dir,"/releases",filter_query,false,"#releases-workspace","#releases-workspace") }}
+          {{ sortable("Release","release",filters.sort,filters.dir,"/releases",filter_query,false,"#releases-workspace","#releases-workspace") }}
+          {{ sortable("Repair","repair",filters.sort,filters.dir,"/releases",filter_query,true,"#releases-workspace","#releases-workspace") }}
+        </tr></thead>
+        <tbody>
+        {% for x in rows %}
+        <tr>
+          <td class="nowrap">{{ x.final_time[0:19]|replace('T',' ') }}</td>
+          <td>{% if x.recovered %}<span class="status recovered"><span class="retry-symbol">↻</span> recovered</span>{% elif x.eventually_completed %}<span class="status completed">completed</span>{% elif x.outcome == 'cancelled' %}<span class="status cancelled">cancelled</span>{% else %}<span class="status failed">failed</span>{% endif %}</td>
+          <td>{{ x.indexer }}</td>
+          <td><span class="tag">{{ x.match_method }}</span></td>
+          <td>
+            {% if x.has_retry %}
+              <span class="retry-badge {% if x.recovered %}retry-recovered{% endif %}" title="{{ x.retry_count }} retr{{ 'y' if x.retry_count == 1 else 'ies' }} after the first attempt">
+                ↻ {{ x.attempts }} attempts
+              </span>
+            {% else %}
+              <span class="retry-single">1 attempt</span>
+            {% endif %}
+          </td>
+          <td class="release-cell"><button class="release-link" data-release-title="{{ x.title }}" data-release-time="{{ x.final_time }}" data-hours="{{ snap.hours }}">{{ x.title }}</button></td>
+          <td class="num">{{ x.repair_blocks }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="7"><div class="empty-state">No releases match these filters.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% set pager_target = "#releases-workspace" %}{% set pager_select = "#releases-workspace" %}
+    {% include "_pager.html" %}
+  </section>
+  </div>
+</section>

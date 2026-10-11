@@ -1,0 +1,60 @@
+{% if sample and sample.outcomes is defined %}
+{% set denom = sample.selected if sample.selected else 1 %}
+{% set failed_total = sample.outcomes.failed_recovered + sample.outcomes.failed_only %}
+{% set p_completed = (sample.outcomes.completed * 100 / denom) %}
+{% set p_failed = (failed_total * 100 / denom) %}
+{% set stop1 = p_completed %}
+{% set stop2 = p_completed %}
+{% set stop3 = p_completed + p_failed %}
+<div class="sample-chart-grid">
+  <section class="panel sample-chart-card">
+    <div class="panel-head">
+      <div><h2>Download results</h2><small class="panel-subtitle">How the selected SAB download attempts themselves ended.</small></div>
+      <span class="chip">{{ sample.selected }} downloads</span>
+    </div>
+    <div class="sample-donut-layout">
+      <div class="interactive-donut"
+           data-donut-total="{{ sample.selected }}"
+           data-donut-label="selected"
+           data-donut-values='{{ [
+             {"label":"Downloaded successfully","value":sample.outcomes.completed,"tone":"completed"},
+             {"label":"Download failed","value":failed_total,"tone":"failed"},
+             {"label":"Cancelled / no final result","value":sample.outcomes.cancelled_other,"tone":"other"}
+           ] | tojson }}'
+           aria-label="Download result breakdown"></div>
+      <div class="sample-donut-legend">
+        <div><i class="sample-dot completed"></i><span>Downloaded successfully</span><b>{{ sample.outcomes.completed }}</b></div>
+        <div><i class="sample-dot failed"></i><span>Download failed</span><b>{{ failed_total }}</b></div>
+        {% if sample.outcomes.cancelled_other %}<div><i class="sample-dot other"></i><span>Cancelled / no final result</span><b>{{ sample.outcomes.cancelled_other }}</b></div>{% endif %}
+      </div>
+    </div>
+    {% if sample.outcomes.failed_recovered %}<p class="note compact-note">{{ sample.outcomes.failed_recovered }} failed downloads were later recovered by another attempt. They still count as failed downloads here.</p>{% endif %}
+  </section>
+
+  <section class="panel sample-chart-card">
+    <div class="panel-head">
+      <div><h2>Repair needed</h2><small class="panel-subtitle">How much PAR repair SAB observed across these same downloads.</small></div>
+    </div>
+    <div class="sample-bar-list">
+      {% set zero_pct = sample.repair.zero * 100 / denom %}
+      {% set light_pct = sample.repair.light * 100 / denom %}
+      {% set heavy_pct = sample.repair.heavy * 100 / denom %}
+      <div class="sample-bar-row">
+        <div class="sample-bar-label"><b>No repair</b><small>0 repair blocks</small></div>
+        <div class="sample-bar-track"><i style="width: {{ zero_pct }}%"></i></div>
+        <div class="sample-bar-value"><b>{{ sample.repair.zero }}</b><small>{{ "%.1f"|format(zero_pct) }}%</small></div>
+      </div>
+      <div class="sample-bar-row">
+        <div class="sample-bar-label"><b>Some repair</b><small>1–9 repair blocks</small></div>
+        <div class="sample-bar-track"><i style="width: {{ light_pct }}%"></i></div>
+        <div class="sample-bar-value"><b>{{ sample.repair.light }}</b><small>{{ "%.1f"|format(light_pct) }}%</small></div>
+      </div>
+      <div class="sample-bar-row">
+        <div class="sample-bar-label"><b>Heavy repair</b><small>10+ repair blocks</small></div>
+        <div class="sample-bar-track"><i style="width: {{ heavy_pct }}%"></i></div>
+        <div class="sample-bar-value"><b>{{ sample.repair.heavy }}</b><small>{{ "%.1f"|format(heavy_pct) }}%</small></div>
+      </div>
+    </div>
+  </section>
+</div>
+{% endif %}

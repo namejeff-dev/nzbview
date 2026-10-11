@@ -1,0 +1,9 @@
+{% macro app_icon(app, size='sm', label=false) -%}
+  {% set key = (app or '')|lower %}
+  {% if key in ['sonarr','radarr','prowlarr','sabnzbd'] %}
+  <span class="app-mark app-mark-{{ size }} app-mark-{{ key }}" title="{{ app }}">
+    <img src="/static/{{ key }}.svg?v=2.15.2" alt="" aria-hidden="true">
+    {% if label %}<span>{{ app }}</span>{% endif %}
+  </span>
+  {% endif %}
+{%- endmacro %}

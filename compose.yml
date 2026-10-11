@@ -1,0 +1,21 @@
+services:
+  nzbview:
+    build: .
+    ports:
+      - "127.0.0.1:8787:8787"
+    environment:
+      NZBVIEW_ACCESS_TOKEN: ${NZBVIEW_ACCESS_TOKEN:?Set a strong access token in .env}
+      NZBVIEW_ALLOWED_HOSTS: ${NZBVIEW_ALLOWED_HOSTS:-localhost,127.0.0.1}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - nzbview-data:/data
+      - ./collector_config.json:/app/collector_config.json:ro
+      - ${SAB_LOG_DIR:?Set the host SAB log directory}:/logs/sab:ro
+      - ${PROWLARR_LOG_DIR:?Set the host Prowlarr log directory}:/logs/prowlarr:ro
+      # Optional, after setting these fields in collector_config.json:
+      # - /absolute/path/to/sonarr/logs:/logs/sonarr:ro
+      # - /absolute/path/to/radarr/logs:/logs/radarr:ro
+    restart: unless-stopped
+volumes:
+  nzbview-data:

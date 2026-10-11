@@ -1,0 +1,292 @@
+{% from "_app_icon.html" import app_icon %}
+<section class="page" data-page-title="Indexers" data-hours="{{ snap.hours }}" data-scope-mode="{{ sample_scope.mode }}" data-sample-type="grabs" data-sample-n="{{ sample_scope.n }}">
+  <div id="indexers-suite" data-scope-state data-scope-mode="{{ sample_scope.mode }}" data-sample-type="grabs" data-sample-n="{{ sample_scope.n }}">
+  {% set subtitle = "Indexer grab reliability and search availability, viewed by time window or fixed recent sample." %}
+  {% set scope_target = "#indexers-suite" %}{% set scope_select = "#indexers-suite" %}
+  {% include "_page_head.html" %}
+
+  <nav class="section-tabs" aria-label="Indexer views">
+    {% if sample_scope.mode == 'sample' %}
+      {% set indexer_scope_q = "hours=" ~ snap.hours ~ "&scope=sample&sample_type=grabs&sample_n=" ~ sample_scope.n %}
+      {% set raw_scope_q = "hours=" ~ snap.hours ~ "&scope=sample&sample_type=searches&sample_n=" ~ sample_scope.n %}
+    {% else %}
+      {% set indexer_scope_q = "hours=" ~ snap.hours %}
+      {% set raw_scope_q = "hours=" ~ snap.hours %}
+    {% endif %}
+    <a class="section-tab active" href="/indexers?{{ indexer_scope_q }}" hx-get="/indexers?{{ indexer_scope_q }}" hx-target="#indexers-suite" hx-select="#indexers-suite" hx-swap="outerHTML" hx-push-url="true">Indexer performance</a>
+    <a class="section-tab" href="/raw-search-results?{{ raw_scope_q }}" hx-get="/raw-search-results?{{ raw_scope_q }}" hx-target="#indexers-suite" hx-select="#indexers-suite" hx-swap="outerHTML" hx-push-url="true">Raw search results</a>
+  </nav>
+
+  {% if sample_scope.mode == 'sample' %}
+  <div class="sample-scope-banner">
+    <div>
+      <span class="sample-scope-kicker">Recent sample</span>
+      <strong>Last {{ sample_scope.n }} grabs per indexer</strong>
+      <small>Each indexer is evaluated on its own newest grabs · no time limit</small>
+    </div>
+    <div class="sample-scope-meta">
+      <span class="chip good-chip">{{ sample.indexers|length }} indexers evaluated</span>
+      {% if sample.span_start and sample.span_end %}<span class="chip">sample evidence spans {{ sample.span_start[0:16]|replace('T',' ') }} → {{ sample.span_end[0:16]|replace('T',' ') }}</span>{% endif %}
+    </div>
+  </div>
+
+  <div class="indexer-sample-grid">
+    {% for row in sample.indexers %}
+    <article class="panel indexer-sample-card">
+      <div class="panel-head indexer-sample-head">
+        <div><h2>{{ row.indexer }}</h2><small class="panel-subtitle">Newest {{ row.selected }} grab{{ '' if row.selected == 1 else 's' }} from this indexer</small></div>
+        <span class="chip {% if row.selected < row.requested %}warn-chip{% endif %}">{{ row.selected }} of {{ row.requested }} requested{% if row.total_available != row.selected %} · {{ row.total_available }} retained{% endif %}</span>
+      </div>
+      <div class="indexer-sample-hero">
+        <div>
+          <span>Download success</span>
+          {% if row.success is not none %}<strong class="{{ 'good' if row.success >= 80 else 'warn' if row.success >= 60 else 'bad' }}">{{ "%.1f"|format(row.success) }}%</strong>{% else %}<strong>—</strong>{% endif %}
+          <small>successful ÷ (successful + failed)</small>
+        </div>
+        <div class="sample-bar-track indexer-sample-progress"><i style="width: {{ row.success or 0 }}%"></i></div>
+      </div>
+      <div class="metric-grid indexer-sample-metrics">
+        <div><span>Successful downloads</span><b class="good">{{ row.completed }}</b></div>
+        <div><span>Failed downloads</span><b class="{{ 'bad' if row.failed else '' }}">{{ row.failed }}</b></div>
+        <div><span>No completed/failed result</span><b class="{{ 'warn' if row.unknown else '' }}">{{ row.unknown }}</b><small>{{ row.unlinked }} not linked to SAB{% if row.linked_other %} · {{ row.linked_other }} other state{% endif %}</small></div>
+        <div><span>Repair needed</span><b>{% if row.repair_pct is not none %}{{ "%.1f"|format(row.repair_pct) }}%{% else %}—{% endif %}</b></div>
+        <div><span>Heavy repair</span><b>{% if row.heavy_pct is not none %}{{ "%.1f"|format(row.heavy_pct) }}%{% else %}—{% endif %}</b></div>
+        <div><span>Linked to SAB</span><b>{{ row.linked }} / {{ row.selected }}</b></div>
+      </div>
+      {% if row.selected < row.requested %}<p class="note warn-note">Only {{ row.total_available }} retained grabs exist for this indexer, so nzbview cannot build a full {{ row.requested }}-grab sample yet.</p>{% endif %}
+    </article>
+    {% else %}
+    <section class="panel"><div class="empty-state">No retained Usenet grabs are available.</div></section>
+    {% endfor %}
+  </div>
+
+  <section class="panel sample-search-panel">
+    <div class="panel-head">
+      <div><h2>Combined newest {{ sample.requested }} grabs</h2><small class="panel-subtitle">Selection share across the newest grabs overall. This is context only; the indexer cards above use independent per-indexer samples.</small></div>
+      <span class="chip">{{ sample.combined_selected }} selected · {{ sample.combined_total_available }} retained total</span>
+    </div>
+    <div class="sample-bar-list">
+      {% for row in sample.combined_indexers %}
+      <div class="sample-bar-row">
+        <div class="sample-bar-label"><b>{{ row.indexer }}</b><small>{{ row.grabs }} of {{ sample.combined_selected }} combined grabs</small></div>
+        <div class="sample-bar-track"><i style="width: {{ row.share or 0 }}%"></i></div>
+        <div class="sample-bar-value"><b>{{ "%.1f"|format(row.share or 0) }}%</b><small>selection share</small></div>
+      </div>
+      {% else %}<div class="empty-state compact-empty">No recent grabs are available.</div>{% endfor %}
+    </div>
+  </section>
+  <p class="note">A grab that cannot be safely connected to a retained SAB attempt remains unknown; it is never counted as a failed download. Failed grabs that were later recovered still count as failures for the original grab. Recovery is a separate acquisition-level metric.</p>
+
+  {% else %}
+  <details class="metric-guide panel-lite">
+    <summary>Metric guide</summary>
+    <div class="metric-guide-grid">
+      <div><b>Final success</b><span>Unique releases whose final observed result completed inside the selected window.</span></div>
+      <div><b>Successful grabs</b><span>Grab attempts from this indexer that reached a completed SAB terminal state on that same attempt. Failed grabs later rescued by another indexer do not count.</span></div>
+      <div><b>Repair needed</b><span>Share of unique releases where SAB observed one or more repair blocks.</span></div>
+      <div><b>Heavy repair</b><span>Share of unique releases with 10 or more observed repair blocks.</span></div>
+      <div><b>Rescued from others</b><span>Failed through another indexer, then later completed through this indexer.</span></div>
+      <div><b>Later rescued elsewhere</b><span>Failed through this indexer, then later completed through another indexer.</span></div>
+      <div><b>Previous-window Δ</b><span>Percentage-point change versus the immediately preceding window of equal length.</span></div>
+      <div><b>Search activity</b><span>Includes automatic, interactive/manual, and RSS usage. Search-only browsing is activity, not a quality failure.</span></div>
+    </div>
+  </details>
+
+  <div class="indexer-grid">
+    {% for api in snap.indexers %}
+      {% set quality = (snap.release_stats | selectattr("indexer","equalto",api.name) | list | first) %}
+      {% set attempts = (snap.attempt_stats | selectattr("indexer","equalto",api.name) | list | first) %}
+      {% set credit = (snap.recovery_credit | selectattr("indexer","equalto",api.name) | list | first) %}
+      <article class="indexer-detail panel">
+        <div class="panel-head">
+          <h2>{{ api.name }}</h2>
+          <div class="panel-chips">
+            <span class="chip">{{ api.history_grab_events }} history grabs</span>
+            {% if quality and quality.releases < 10 %}<span class="chip sample-chip">small sample</span>{% endif %}
+          </div>
+        </div>
+
+        {% if quality and quality.releases %}
+          <div class="indexer-hero-row">
+            <div class="hero-number {{ 'good' if quality.success >= 70 else 'bad' }}">{{ "%.2f"|format(quality.success or 0) }}%</div>
+            {% set successful_grabs = (attempts.successful_grabs if attempts and attempts.successful_grabs is defined else attempts.completed if attempts else 0) %}
+            <div class="successful-grab-badge" title="Completed SAB attempts attributed to this indexer. A failed grab later rescued by another indexer is not credited here.">
+              <span class="successful-grab-icon">✓</span>
+              <span><small>Successful grabs</small><strong>{{ successful_grabs }}</strong></span>
+            </div>
+          </div>
+          <div class="hero-label">
+            final unique-release success · {{ quality.releases }} releases
+            {% if quality.success_delta_pp is not none %}
+              <span class="window-delta {{ 'delta-up' if quality.success_delta_pp > 0 else 'delta-down' if quality.success_delta_pp < 0 else 'delta-flat' }}"
+                    title="Current sample: {{ quality.releases }} releases. Previous sample: {{ quality.previous_releases }} releases in the immediately preceding {{ snap.hours }}h window.">
+                {{ '▲' if quality.success_delta_pp > 0 else '▼' if quality.success_delta_pp < 0 else '•' }}
+                {{ "%+.2f"|format(quality.success_delta_pp) }} pp vs previous window
+              </span>
+              <span class="sample-context inline-sample">sample {{ quality.releases }} now / {{ quality.previous_releases }} previous</span>
+            {% else %}
+              <span class="window-delta delta-na">no previous-window sample</span>
+            {% endif %}
+          </div>
+          <div class="progress large"><i class="{{ 'bar-good' if quality.success >= 70 else 'bar-bad' }}" style="width:{{ quality.success or 0 }}%"></i></div>
+        {% else %}
+          <div class="hero-number muted-number">—</div>
+          <div class="hero-label">no attributed releases in this activity window</div>
+          <div class="progress large"><i style="width:0%"></i></div>
+        {% endif %}
+
+        <a class="indexer-verdict-link"
+           href="/releases?hours={{ snap.hours }}&indexer={{ api.name|urlencode }}"
+           hx-get="/releases?hours={{ snap.hours }}&indexer={{ api.name|urlencode }}"
+           hx-target="#page-content" hx-push-url="true"
+           title="Open Releases filtered to {{ api.name }} for this Activity Window">
+          <div class="indexer-verdict verdict-{{ api.window_verdict_tone }}">
+            <div>
+              <span>Window verdict · open releases →</span>
+              <strong>{{ api.window_verdict }}</strong>
+            </div>
+            {% if api.window_verdict_note %}
+            <small>{{ api.window_verdict_note }}</small>
+            {% elif api.window_verdict_sample %}
+            <small>{{ api.window_verdict_sample }} final unique releases observed</small>
+            {% else %}
+            <small>Needs more attributed release outcomes</small>
+            {% endif %}
+          </div>
+        </a>
+
+        <div class="subsection-label app-heading">{{ app_icon("Prowlarr", "xs") }}<span>Prowlarr history activity</span></div>
+        <div class="metric-grid metric-grid-3">
+          <div><span>Search events</span><b>{{ api.history_search_events }}</b></div>
+          <div><span>RSS events</span><b>{{ api.history_rss_events }}</b></div>
+          <div><span>Prowlarr grab events</span><b>{{ api.history_grab_events }}</b></div>
+        </div>
+        {% if api.grab_methods %}
+        <div class="chip-row compact-chips">
+          {% for m in api.grab_methods %}<span class="chip">method: {{ m.name }} · {{ m.count }}</span>{% endfor %}
+        </div>
+        {% endif %}
+        {% if api.grab_sources %}
+        <div class="chip-row compact-chips">
+          {% for src in api.grab_sources %}<span class="chip">source: {{ src.name }} · {{ src.count }}</span>{% endfor %}
+        </div>
+        {% endif %}
+
+        <div class="subsection-label">SAB quality + recovery</div>
+        <div class="metric-grid">
+          <div><span>Eligible attempts</span><b>{{ attempts.attempts if attempts else 0 }}</b></div>
+          <div><span>Successful grabs</span><b class="good">{{ attempts.successful_grabs if attempts and attempts.successful_grabs is defined else attempts.completed if attempts else 0 }}</b></div>
+          <div><span>Attempt success</span><b>{{ "%.2f"|format(attempts.success if attempts and attempts.success is not none else 0) }}%</b></div>
+          <div><span>Repair needed <i class="help-tip" tabindex="0" data-tip="Unique releases with one or more observed SAB repair blocks.">?</i></span><b>{{ "%.2f"|format((quality.repair_pct or 0) if quality else 0) }}%</b></div>
+          <div><span>Heavy repair <i class="help-tip" tabindex="0" data-tip="Unique releases with 10 or more observed SAB repair blocks.">?</i></span><b>{{ "%.2f"|format((quality.heavy_pct or 0) if quality else 0) }}%</b></div>
+          <div><span>Rescued from others <i class="help-tip" tabindex="0" data-tip="A different indexer failed first; this indexer later supplied the successful release.">?</i></span><b class="good">{{ credit.rescued_from_others if credit else 0 }}</b></div>
+          <div><span>Later rescued elsewhere <i class="help-tip" tabindex="0" data-tip="This indexer failed first; another indexer later supplied the successful release.">?</i></span><b class="warn">{{ credit.rescued_elsewhere if credit else 0 }}</b></div>
+          <div><span>Same-index recoveries</span><b>{{ credit.same_indexer_recoveries if credit else 0 }}</b></div>
+          <div><span>Exact / fallback</span><b>{{ quality.exact if quality else 0 }} / {{ quality.episode if quality else 0 }}</b></div>
+        </div>
+
+        <div class="subsection-label app-heading">{{ app_icon("Prowlarr", "xs") }}<span>Prowlarr API counter delta</span></div>
+        <div class="metric-grid">
+          <div><span>Query counter Δ</span><b>{{ api.window_queries }}</b></div>
+          <div><span>Grab counter Δ</span><b>{{ api.window_grabs }}</b></div>
+          <div><span>Query failures Δ</span><b>{{ api.window_failed_queries }}</b></div>
+          <div><span>Grab failures Δ</span><b>{{ api.window_failed_grabs }}</b></div>
+          <div><span>All-time queries</span><b>{{ api.queries }}</b></div>
+          <div><span>All-time grabs</span><b>{{ api.grabs }}</b></div>
+        </div>
+
+        {% if api.window_partial %}
+        <p class="note warn-note">Partial API-counter window: requested {{ snap.hours }}h; observed snapshot span {{ api.window_coverage_hours if api.window_coverage_hours is not none else "unknown" }}h. The DB does not yet contain a full baseline.</p>
+        {% else %}
+        <p class="note">API counters are shown as deltas, not as a grab/search conversion rate. Search, RSS, and grab populations can differ.</p>
+        {% endif %}
+      </article>
+    {% endfor %}
+  </div>
+
+  <section class="panel">
+    <div class="panel-head trend-panel-head">
+      <div>
+        <h2>Indexer metric trend</h2>
+        <span class="panel-subtitle">Compare quality dimensions across {{ snap.quality_bucket_hours }}h buckets.</span>
+      </div>
+      <div class="trend-controls">
+        <label for="trend-metric">Metric</label>
+        <select id="trend-metric" data-trend-metric>
+          <option value="final_success">Final success</option>
+          <option value="attempt_success">Attempt success</option>
+          <option value="repair_rate">Repair rate</option>
+          <option value="heavy_repair_rate">Heavy repair</option>
+        </select>
+        <span class="chip">{{ snap.quality_bucket_hours }}h buckets · selected {{ snap.hours }}h window</span>
+      </div>
+    </div>
+    <div class="quality-trend-grid">
+      {% for api in snap.indexers %}
+      <a class="quality-trend-card trend-drill"
+         href="/releases?hours={{ snap.hours }}&indexer={{ api.name|urlencode }}"
+         hx-get="/releases?hours={{ snap.hours }}&indexer={{ api.name|urlencode }}"
+         hx-target="#page-content" hx-push-url="true"
+         title="Open {{ api.name }} releases for this Activity Window">
+        <div class="trend-title"><strong>{{ api.name }}</strong><span data-trend-label>unique-release final success · click to drill down</span></div>
+        <div class="quality-spark" data-indexer="{{ api.name }}" data-series='{{ snap.indexer_metric_series | tojson }}'></div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if snap.recovery_path_summary %}
+  <section class="panel">
+    <div class="panel-head"><h2>Recovery credit</h2><span class="chip">cross-indexer and same-index paths</span></div>
+    <div class="recovery-summary-grid">
+      {% for path in snap.recovery_path_summary %}
+      <div class="recovery-summary-item">
+        <span>{{ path.failed_via }}</span><b>→</b><span class="good">{{ path.recovered_via }}</span><strong>{{ path.count }}</strong>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <section class="panel">
+    <div class="panel-head"><h2>Window comparison</h2><span class="chip">{{ snap.hours }}h activity</span></div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Indexer</th><th>Search events</th><th>RSS events</th><th>Prowlarr grab events</th>
+            <th>Attempts</th><th>Successful grabs</th><th>Attempt success</th><th>Final success</th><th>Prev-window Δ</th><th>Repair</th><th>Heavy</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for api in snap.indexers %}
+          {% set q = (snap.release_stats | selectattr("indexer","equalto",api.name) | list | first) %}
+          {% set a = (snap.attempt_stats | selectattr("indexer","equalto",api.name) | list | first) %}
+          <tr>
+            <td><b>{{ api.name }}</b></td>
+            <td>{{ api.history_search_events }}</td>
+            <td>{{ api.history_rss_events }}</td>
+            <td>{{ api.history_grab_events }}</td>
+            <td>{{ a.attempts if a else 0 }}</td>
+            <td class="good">{{ a.successful_grabs if a and a.successful_grabs is defined else a.completed if a else 0 }}</td>
+            <td>{% if a and a.attempts %}{{ "%.2f"|format(a.success or 0) }}%{% else %}—{% endif %}</td>
+            <td class="{% if q and q.releases %}{{ 'good' if q.success >= 70 else 'bad' }}{% endif %}">
+              {% if q and q.releases %}{{ "%.2f"|format(q.success or 0) }}%{% else %}—{% endif %}
+            </td>
+            <td>
+              {% if q and q.success_delta_pp is not none %}
+                <span class="{{ 'good' if q.success_delta_pp > 0 else 'bad' if q.success_delta_pp < 0 else '' }}" title="{{ q.releases }} current releases vs {{ q.previous_releases }} previous releases">{{ "%+.2f"|format(q.success_delta_pp) }} pp</span>
+                <small class="table-sample">{{ q.releases }}/{{ q.previous_releases }} sample</small>
+              {% else %}—{% endif %}
+            </td>
+            <td>{% if q and q.releases %}{{ "%.2f"|format(q.repair_pct or 0) }}%{% else %}—{% endif %}</td>
+            <td>{% if q and q.releases %}{{ "%.2f"|format(q.heavy_pct or 0) }}%{% else %}—{% endif %}</td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+  {% endif %}
+  </div>
+</section>

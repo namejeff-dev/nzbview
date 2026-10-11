@@ -1,0 +1,19 @@
+{
+  "script": "database_collector.py",
+  "db": "data/database_collector.db",
+  "sab_url": "http://127.0.0.1:8080",
+  "sab_api_key": "YOUR_SAB_API_KEY",
+  "sab_log_dir": "/path/to/sabnzbd/logs",
+  "prowlarr_url": "http://127.0.0.1:9696",
+  "prowlarr_api_key": "YOUR_PROWLARR_API_KEY",
+  "prowlarr_log_dir": "/path/to/prowlarr/logs",
+  "sonarr_url": "http://127.0.0.1:8989",
+  "sonarr_api_key": "",
+  "sonarr_log_dir": "",
+  "radarr_url": "http://127.0.0.1:7878",
+  "radarr_api_key": "",
+  "radarr_log_dir": "",
+  "log_timezone": "Europe/Berlin",
+  "match_window_hours": 168,
+  "timeout_seconds": 900
+}

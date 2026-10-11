@@ -1,0 +1,168 @@
+<section class="page help-page" data-page-title="Help" data-hours="{{ snap.hours }}">
+  {% set subtitle = "Plain-language guide to what each page shows and how to read the numbers." %}
+  {% include "_page_head.html" %}
+
+  {% set topics = [
+    ('overview','Start here'),
+    ('dashboard','Dashboard'),
+    ('activity','Activity'),
+    ('indexers','Indexers'),
+    ('providers','Providers'),
+    ('downloads','Downloads'),
+    ('releases','Releases'),
+    ('recovered','Recovered'),
+    ('failures','Failures'),
+    ('diagnostics','Diagnostics')
+  ] %}
+
+  <div id="help-workspace" class="help-layout">
+    <nav class="help-nav" aria-label="Help topics">
+      <div class="help-nav-title">Help topics</div>
+      {% for value,label in topics %}
+      <a class="help-nav-link {% if help_topic == value %}active{% endif %}"
+         href="/help?hours={{ snap.hours }}&topic={{ value }}"
+         hx-get="/help?hours={{ snap.hours }}&topic={{ value }}"
+         hx-target="#help-workspace" hx-select="#help-workspace" hx-swap="outerHTML" hx-push-url="true">{{ label }}</a>
+      {% endfor %}
+    </nav>
+
+    <section class="panel help-content">
+      {% if help_topic == 'overview' %}
+        <div class="help-heading"><span class="help-kicker">Start here</span><h2>What nzbview is showing you</h2></div>
+        <p>nzbview follows a release from the moment Sonarr or Radarr searches for it until SAB finishes the download and Arr imports it. It keeps those steps separate so a search problem is not mistaken for a provider problem, and a failed download is not mistaken for a failed import.</p>
+        <div class="help-flow">
+          <div><b>1. Search</b><span>Sonarr/Radarr asks one or more indexers for releases.</span></div>
+          <div><b>2. Grab</b><span>A release is selected and handed to SABnzbd.</span></div>
+          <div><b>3. Download</b><span>SAB downloads, verifies, repairs and unpacks it.</span></div>
+          <div><b>4. Import</b><span>Sonarr/Radarr moves the completed media into the library.</span></div>
+        </div>
+        <h3>Two ways to look at the data</h3>
+        <dl class="help-defs">
+          <div><dt>Time window</dt><dd>Shows everything inside a period such as the last day, 7 days or 14 days. Use this when you want to know what happened during a period of time.</dd></div>
+          <div><dt>Recent sample</dt><dd>Uses the newest fixed number of items, such as the last 50 or 100 grabs/downloads/searches, regardless of how long they took to happen. Use this when you want a fair performance sample.</dd></div>
+          <div><dt>Exact match</dt><dd>nzbview could directly connect the Arr/Prowlarr release name to the SAB job.</dd></div>
+          <div><dt>Episode fallback</dt><dd>The exact title did not match, but series + season + episode information was strong enough to connect the records safely.</dd></div>
+          <div><dt>Unresolved</dt><dd>nzbview saw part of the journey but does not have enough retained evidence to claim a final result.</dd></div>
+        </dl>
+
+      {% elif help_topic == 'dashboard' %}
+        <div class="help-heading"><span class="help-kicker">Dashboard</span><h2>The quick health view</h2></div>
+        <p>The Dashboard is the fastest place to see whether downloads and indexers are behaving normally in the selected window.</p>
+        <dl class="help-defs">
+          <div><dt>Attempt success</dt><dd>Of the SAB attempts that ended in success or failure, how many completed successfully.</dd></div>
+          <div><dt>Eventual success</dt><dd>How many unique releases eventually completed, even if an earlier attempt failed first.</dd></div>
+          <div><dt>Recovered</dt><dd>A release failed once, then a later attempt completed it.</dd></div>
+          <div><dt>Heavy repair</dt><dd>A release needed 10 or more PAR repair blocks. A high number can point to poor article availability or damaged uploads.</dd></div>
+          <div><dt>Live trends</dt><dd>Shows how outcomes, indexer success, search coverage and provider availability changed through the selected window. Hover the chart to see the exact values at a point in time. Click a legend item to hide or show that series.</dd></div>
+          <div><dt>Biggest changes</dt><dd>Compares the current window with the immediately previous window of the same length when enough data exists.</dd></div>
+          <div><dt>Attribution quality</dt><dd>Shows how confidently nzbview connected Arr/Prowlarr activity to the correct SAB release.</dd></div>
+        </dl>
+
+      {% elif help_topic == 'activity' %}
+        <div class="help-heading"><span class="help-kicker">Activity</span><h2>The event timeline</h2></div>
+        <p>Activity is the audit trail. It shows what happened at each stage instead of trying to collapse everything into one result.</p>
+        <dl class="help-defs">
+          <div><dt>Searches</dt><dd>Sonarr/Radarr search sessions seen in retained logs.</dd></div>
+          <div><dt>Hand-offs</dt><dd>Releases Sonarr/Radarr actually sent to SAB.</dd></div>
+          <div><dt>Downloads</dt><dd>SAB download results such as completed or failed.</dd></div>
+          <div><dt>Imports</dt><dd>Sonarr/Radarr import results after SAB finished. A SAB completion is not automatically treated as proof of import.</dd></div>
+          <div><dt>Pre-SAB</dt><dd>The release failed before SAB received it, for example an indexer/Prowlarr grab problem.</dd></div>
+          <div><dt>Infrastructure</dt><dd>Connection or availability problems between Arr and the download client.</dd></div>
+          <div><dt>History</dt><dd>Routine SAB/Arr history cleanup and archive actions.</dd></div>
+          <div><dt>Trigger</dt><dd>Whether the search appears automatic, an automatic retry after a previous failure, interactive/manual, RSS-related, or unclear from retained evidence.</dd></div>
+        </dl>
+
+      {% elif help_topic == 'indexers' %}
+        <div class="help-heading"><span class="help-kicker">Indexers</span><h2>How well each indexer finds usable releases</h2></div>
+        <p>Indexer Performance focuses on grabs and their download results. Raw Search Results focuses on what each indexer returned during searches before the download result is known.</p>
+        <h3>Indexer Performance</h3>
+        <dl class="help-defs">
+          <div><dt>Final success</dt><dd>Unique releases from the indexer whose final observed result completed.</dd></div>
+          <div><dt>Successful grabs</dt><dd>Grabs from that indexer whose own SAB attempt completed. If it failed and another indexer later recovered the media, the original grab still stays failed.</dd></div>
+          <div><dt>Attempt success</dt><dd>Successful downloads divided by successful + failed downloads for that indexer.</dd></div>
+          <div><dt>Repair needed / Heavy repair</dt><dd>How often releases needed PAR repair, with Heavy repair meaning 10 or more repair blocks.</dd></div>
+          <div><dt>Rescued from others</dt><dd>Another indexer failed first and this indexer later supplied the successful replacement.</dd></div>
+          <div><dt>Later rescued elsewhere</dt><dd>This indexer failed first and a different indexer later supplied the successful replacement.</dd></div>
+          <div><dt>Recent sample · Grabs</dt><dd>Each indexer gets its own newest N grabs. This lets you compare “last 100 grabs from altHUB” with “last 100 grabs from NZBgeek” instead of mixing them into one pool.</dd></div>
+        </dl>
+        <h3>Raw Search Results</h3>
+        <dl class="help-defs">
+          <div><dt>Availability</dt><dd>For searches where nzbview knows the wanted quality, the percentage where that indexer returned at least one matching release.</dd></div>
+          <div><dt>Queried searches</dt><dd>How many selected searches actually used that indexer. An indexer can have fewer than the total if Arr/Prowlarr did not query it every time.</dd></div>
+          <div><dt>Wanted-quality NZBs returned</dt><dd>The number of individual matching release candidates, not the number of searches. One search can return hundreds of NZBs, so this number can be much larger than the search count.</dd></div>
+          <div><dt>All NZBs returned</dt><dd>All retained candidates returned before later Arr filtering.</dd></div>
+        </dl>
+
+      {% elif help_topic == 'providers' %}
+        <div class="help-heading"><span class="help-kicker">Providers</span><h2>What your Usenet servers actually supplied</h2></div>
+        <p>Providers are not indexers. Indexers tell Arr where a release exists; providers are the Usenet servers SAB downloads the article data from.</p>
+        <dl class="help-defs">
+          <div><dt>Article availability</dt><dd>The percentage of requested Usenet articles that SAB could get from that provider.</dd></div>
+          <div><dt>Selected-window availability</dt><dd>Availability calculated from the change between stored provider snapshots around the selected time window.</dd></div>
+          <div><dt>Provider contribution</dt><dd>Approximate data volume supplied by each provider to retained downloads where SAB saved a server breakdown.</dd></div>
+          <div><dt>Downloads using multiple providers</dt><dd>SAB pulled data from more than one provider for the same job.</dd></div>
+          <div><dt>Downloads using one provider</dt><dd>Only one provider supplied data for the job.</dd></div>
+          <div><dt>Traffic share over time</dt><dd>How each provider's share of the observed download data changed through the selected window.</dd></div>
+          <div><dt>Recent sample</dt><dd>Uses only the newest downloads where SAB retained provider contribution data. It does not invent per-download article availability from cumulative counters.</dd></div>
+        </dl>
+        <div class="help-callout"><b>Important</b><span>A provider can have excellent article availability but a smaller traffic share simply because SAB used another equal-priority provider more often. Traffic share is not a win/loss score.</span></div>
+
+      {% elif help_topic == 'downloads' %}
+        <div class="help-heading"><span class="help-kicker">Downloads</span><h2>What SAB actually tried to download</h2></div>
+        <p>Downloads is organized by movie, episode or an observed whole-season Sonarr search. Expand a group to see the exact NZB releases SAB attempted.</p>
+        <dl class="help-defs">
+          <div><dt>Completed</dt><dd>That specific SAB attempt finished successfully.</dd></div>
+          <div><dt>Failed</dt><dd>That specific attempt failed. If a later attempt succeeds, the original attempt still stays failed and the later recovery is shown separately.</dd></div>
+          <div><dt>Season group</dt><dd>When retained Sonarr evidence shows a whole-season search, the related episode attempts are kept under one season parent. A single-episode search stays separate.</dd></div>
+          <div><dt>Repair blocks</dt><dd>How much PAR repair SAB reported for that attempt. More repair blocks generally means more missing/damaged article data had to be reconstructed.</dd></div>
+          <div><dt>Recent sample</dt><dd>The newest N completed/failed SAB download attempts, regardless of how much time they span.</dd></div>
+        </dl>
+        <div class="help-callout"><b>Acquisition journey</b><span>Click an exact release name to open the full chain: Arr search → Prowlarr/indexer → SAB processing → final Arr import when retained evidence exists.</span></div>
+
+      {% elif help_topic == 'releases' %}
+        <div class="help-heading"><span class="help-kicker">Releases</span><h2>One row per release acquisition</h2></div>
+        <p>Releases groups repeated attempts of the same normalized release title into an acquisition chain so retries are easier to inspect.</p>
+        <dl class="help-defs">
+          <div><dt>Outcome</dt><dd>The final observed result for that release acquisition.</dd></div>
+          <div><dt>Retry chain</dt><dd>How many attempts were grouped into the same acquisition.</dd></div>
+          <div><dt>Repair</dt><dd>The largest repair-block count seen anywhere in that acquisition chain.</dd></div>
+          <div><dt>Recovered</dt><dd>An earlier attempt failed but a later attempt completed the same acquisition.</dd></div>
+        </dl>
+
+      {% elif help_topic == 'recovered' %}
+        <div class="help-heading"><span class="help-kicker">Recovered</span><h2>Failures that later succeeded</h2></div>
+        <p>This page answers “what failed first, and what eventually saved it?”</p>
+        <dl class="help-defs">
+          <div><dt>Cross-indexer</dt><dd>The failed attempt came from one indexer and the successful replacement came from another.</dd></div>
+          <div><dt>Same-indexer</dt><dd>The retry succeeded using the same indexer that supplied the earlier failed attempt.</dd></div>
+          <div><dt>Recovery path</dt><dd>The failed indexer → successful indexer pair, for example altHUB → NzbPlanet.</dd></div>
+          <div><dt>Repair</dt><dd>The highest repair-block count observed in the recovery chain.</dd></div>
+        </dl>
+
+      {% elif help_topic == 'failures' %}
+        <div class="help-heading"><span class="help-kicker">Failures</span><h2>Downloads that are still failed</h2></div>
+        <p>Recovered releases are intentionally excluded here. This page is for failures that still have no later successful replacement in the selected window.</p>
+        <dl class="help-defs">
+          <div><dt>Cause unavailable</dt><dd>SAB says the attempt failed, but the retained logs/API no longer contain a more specific reason.</dd></div>
+          <div><dt>Verification / Repair / Unpack</dt><dd>The most specific SAB stage associated with the final failure when that evidence was retained.</dd></div>
+          <div><dt>Repair severity</dt><dd>Groups failed releases by repair burden: no repair blocks, 1–9 blocks, or 10+ blocks.</dd></div>
+          <div><dt>Pre-SAB failure</dt><dd>The release failed before SAB received it. These are tracked separately from SAB download failures.</dd></div>
+        </dl>
+
+      {% elif help_topic == 'diagnostics' %}
+        <div class="help-heading"><span class="help-kicker">Diagnostics</span><h2>Is nzbview seeing enough data to trust the other pages?</h2></div>
+        <p>Diagnostics is mostly about collector coverage and evidence quality. You normally only need it when something looks wrong or a metric seems incomplete.</p>
+        <dl class="help-defs">
+          <div><dt>Attribution confidence</dt><dd>How reliably nzbview connected Arr/Prowlarr activity to the correct SAB job.</dd></div>
+          <div><dt>Rotating-log coverage</dt><dd>How many SAB, Prowlarr, Sonarr and Radarr log files/segments were found and read.</dd></div>
+          <div><dt>Rotation continuity</dt><dd>Checks whether the retained rotating logs still overlap the previous collector run. “Possible gap” means some older evidence may have rotated away before nzbview collected it.</dd></div>
+          <div><dt>Arr orchestration</dt><dd>Counts observed searches, hand-offs, retries, imports and connection problems in the selected window.</dd></div>
+          <div><dt>Evidence health</dt><dd>A compact summary of search-target reconstruction, release attribution, collector freshness and retained log coverage.</dd></div>
+          <div><dt>Live vs backfill</dt><dd>Live events are newer than the previous collector watermark. Backfill events are older records that were only discovered on the current run.</dd></div>
+          <div><dt>Collector freshness</dt><dd>How long ago the collector updated the database. Refreshing the browser does not collect new logs by itself.</dd></div>
+          <div><dt>Last collector run</dt><dd>Raw counters from the latest collection pass. These are useful for troubleshooting ingestion, not for judging indexer/provider performance.</dd></div>
+        </dl>
+      {% endif %}
+    </section>
+  </div>
+</section>

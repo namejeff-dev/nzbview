@@ -1,0 +1,51 @@
+{% if sample and sample.outcomes is defined %}
+{% set denom = sample.selected if sample.selected else 1 %}
+{% set failed_total = sample.outcomes.failed_recovered + sample.outcomes.failed_only %}
+{% set p_completed = (sample.outcomes.completed * 100 / denom) %}
+{% set p_failed = (failed_total * 100 / denom) %}
+{% set stop1 = p_completed %}
+{% set stop2 = p_completed %}
+{% set stop3 = p_completed + p_failed %}
+<div class="sample-chart-grid">
+  <section class="panel sample-chart-card">
+    <div class="panel-head">
+      <div><h2>Download results</h2><small class="panel-subtitle">The original result of each SAB attempt in this fixed sample.</small></div>
+      <span class="chip">{{ sample.selected }} downloads</span>
+    </div>
+    <div class="sample-donut-layout">
+      <div class="interactive-donut"
+           data-donut-total="{{ sample.selected }}"
+           data-donut-label="selected"
+           data-donut-values='{{ [
+             {"label":"Downloaded successfully","value":sample.outcomes.completed,"tone":"completed"},
+             {"label":"Download failed","value":failed_total,"tone":"failed"},
+             {"label":"Cancelled / no final result","value":sample.outcomes.cancelled_other,"tone":"other"}
+           ] | tojson }}'
+           aria-label="Download result breakdown"></div>
+      <div class="sample-donut-legend">
+        <div><i class="sample-dot completed"></i><span>Downloaded successfully</span><b>{{ sample.outcomes.completed }}</b></div>
+        <div><i class="sample-dot failed"></i><span>Download failed</span><b>{{ failed_total }}</b></div>
+        {% if sample.outcomes.cancelled_other %}<div><i class="sample-dot other"></i><span>Cancelled / no final result</span><b>{{ sample.outcomes.cancelled_other }}</b></div>{% endif %}
+      </div>
+    </div>
+    {% if sample.outcomes.failed_recovered %}<p class="note compact-note">{{ sample.outcomes.failed_recovered }} of the {{ failed_total }} failed downloads were later recovered by a different attempt. Recovery does not change the original download result.</p>{% endif %}
+  </section>
+
+  <section class="panel sample-chart-card">
+    <div class="panel-head">
+      <div><h2>Download success by indexer</h2><small class="panel-subtitle">Success = downloaded successfully ÷ (successful + failed downloads).</small></div>
+    </div>
+    <div class="sample-bar-list">
+      {% for row in sample.indexers %}
+      <div class="sample-bar-row">
+        <div class="sample-bar-label"><b>{{ row.indexer }}</b><small>{{ row.completed }} successful · {{ row.failed }} failed</small></div>
+        <div class="sample-bar-track"><i style="width: {{ row.success or 0 }}%"></i></div>
+        <div class="sample-bar-value">{% if row.success is not none %}<b>{{ "%.1f"|format(row.success) }}%</b>{% else %}<b>—</b>{% endif %}<small>{{ row.eligible }} downloads with a final result</small></div>
+      </div>
+      {% else %}
+      <div class="empty-state compact-empty">No attributed successful/failed downloads in this sample.</div>
+      {% endfor %}
+    </div>
+  </section>
+</div>
+{% endif %}

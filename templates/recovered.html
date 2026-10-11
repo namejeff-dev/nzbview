@@ -1,0 +1,60 @@
+<section class="page" data-page-title="Recovered" data-hours="{{ snap.hours }}">
+  {% set subtitle = "Same-indexer and cross-indexer recovery paths, with search and drill-down." %}
+  {% include "_page_head.html" %}
+
+  {% set cross = snap.recoveries | selectattr("kind","equalto","cross-indexer") | list %}
+  {% set same = snap.recoveries | selectattr("kind","equalto","same-indexer") | list %}
+  <div class="stat-grid stat-grid-3">
+    <article class="stat-card"><div class="stat-icon blue">↻</div><div><span>Total recovered</span><strong>{{ snap.recoveries|length }}</strong><small>all observed recoveries</small></div></article>
+    <article class="stat-card"><div class="stat-icon green">⇄</div><div><span>Cross-indexer</span><strong>{{ cross|length }}</strong><small>different indexer supplied later grab</small></div></article>
+    <article class="stat-card"><div class="stat-icon violet">⟳</div><div><span>Same-indexer</span><strong>{{ same|length }}</strong><small>retry succeeded on same indexer</small></div></article>
+  </div>
+
+  <section class="panel path-panel">
+    <div class="panel-head"><h2>Recovery path summary</h2><span class="chip">{{ path_summary|length }} paths</span></div>
+    <div class="path-summary">
+      {% for path,count in path_summary %}
+      <div><span>{{ path }}</span><b>{{ count }}</b></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <div id="recovered-workspace">
+  {% set filter_target = "#recovered-workspace" %}{% set filter_select = "#recovered-workspace" %}
+  {% set show_status = false %}{% set show_outcome = false %}{% set show_indexer = false %}{% set show_match = false %}{% set show_repair = false %}{% set show_kind = true %}
+  {% include "_filter_form.html" %}
+
+  {% from "_sort_macros.html" import sortable %}
+  {% set filter_query = "hours=" ~ snap.hours ~ "&q=" ~ filters.q|urlencode ~ "&kind=" ~ filters.kind %}
+  {% set base_query = filter_query ~ "&sort=" ~ filters.sort ~ "&dir=" ~ filters.dir %}
+  <section class="panel">
+    <div class="panel-head"><h2>Recovery paths</h2><span class="chip">{{ pager.total }} matched</span></div>
+    <div class="table-wrap tall">
+      <table>
+        <thead><tr>
+          {{ sortable("Type","type",filters.sort,filters.dir,"/recovered",filter_query,false,"#recovered-workspace","#recovered-workspace") }}
+          {{ sortable("Failed via","failed",filters.sort,filters.dir,"/recovered",filter_query,false,"#recovered-workspace","#recovered-workspace") }}
+          {{ sortable("Recovered via","recovered",filters.sort,filters.dir,"/recovered",filter_query,false,"#recovered-workspace","#recovered-workspace") }}
+          {{ sortable("Release","release",filters.sort,filters.dir,"/recovered",filter_query,false,"#recovered-workspace","#recovered-workspace") }}
+          {{ sortable("Repair","repair",filters.sort,filters.dir,"/recovered",filter_query,true,"#recovered-workspace","#recovered-workspace") }}
+        </tr></thead>
+        <tbody>
+        {% for x in rows %}
+        <tr>
+          <td><span class="tag">{{ x.kind }}</span></td>
+          <td>{{ x.failed_via }}</td>
+          <td><b class="good">{{ x.recovered_via }}</b></td>
+          <td class="release-cell"><button class="release-link" data-release-title="{{ x.title }}" data-release-time="{{ x.final_time }}" data-hours="{{ snap.hours }}">{{ x.title }}</button></td>
+          <td class="num">{{ x.repair_blocks }}</td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5"><div class="empty-state">No recoveries match these filters.</div></td></tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% set pager_target = "#recovered-workspace" %}{% set pager_select = "#recovered-workspace" %}
+    {% include "_pager.html" %}
+  </section>
+  </div>
+</section>
